@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ense-index</title>
+<script type="text/javascript">
+ready(function() {
+	define(function() {
+		this.id = "3516";
+		this.name = "chengdong";
+		this.age = 27;
+		this.list1 = [ 1, 2 ];
+		this.list2 = [ 4, 5 ];
+		this.list3 = [ 7, 8 ];
+	});
+})
+</script>
+</head>
+<body>
+	@each(item1:list1,{
+		<div id="{{id}}" each="item1:list1">
+			@each(item2:list2,{
+			    {{item2}}. {{name}} : {{age}}
+				@each(item3:list3,{
+				   @when(false,{
+					   {{item2}}
+				   })
+				   <div id="{{index}}">
+				    @each(item1:list1,{
+					    {{item1}}. {{name}} : {{age}}
+					})
+	               </div>
+	               <input model="name" value="{{name}}"> 
+				   {{age}}
+				})
+			})
+		</div> 
+	})
+	<div>{{name}}</div>
+	<input model="name" value="{{name}}"> 
+</body>
+</html>
