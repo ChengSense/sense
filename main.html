@@ -12,14 +12,16 @@
 	var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
 	var $close = /[^\}\)]\}\s*\)/g;
 	function define(scope) {
-		init(query("body"));
 		var scope = new scope();
+		init(query("body"));
 		initCompiler(query("body"), cache, scope);
 		observe(scope, function(name, path) {
 			each(cache[path], this, function(node, i, thiz) {
 				var resolver = {
 					express : function() {
 						node.rnode.nodeValue = code(node.cnode.nodeValue, scope);
+						if (node.rnode.name == "value")
+							node.rnode.ownerElement.value = node.rnode.nodeValue;
 					},
 					attribute : function() {
 						try {
@@ -33,10 +35,12 @@
 					},
 					each : function() {
 						clearCache(node.cnode);
+						clearScache(cache);
 						eachCompiler([ node.cnode ], scope, node.rnode);
 					},
 					"@each" : function() {
 						clearCache(node.cnode);
+						clearScache(cache);
 						eachCompiler([ node.cnode ], scope, node.rnode);
 					}
 				};
@@ -59,6 +63,18 @@
 			list.push(this);
 		});
 	}
+	function setCache(node) {
+		if (!node.nodeValue)
+			return;
+		var key = node.nodeValue.replace(express, "$1");
+		cache[key] = cache[key] || [];
+		cache[key].push({
+			resolver : "express",
+			cnode : node.cloneNode(true),
+			rnode : node,
+			scache : true
+		});
+	}
 	function clearCache(node) {
 		node.cache = node.cache || [];
 		each(node.cache, node.cache, function(node, i, cache) {
@@ -68,6 +84,15 @@
 				node.parentNode.removeChild(node);
 			delete cache[i];
 		});
+	}
+	function clearScache(cache) {
+		each(cache, function() {
+			for ( var key in this) {
+				if (this[key].scache)
+					this.splice(key, 1);
+			}
+		});
+		log(cache)
 	}
 	var index = 0;
 	function eachNode(node) {
@@ -156,7 +181,7 @@
 					});
 					node.nodeValue.replace(express, function(tag) {
 						if (node.name == "value")
-							binding(node.ownerElement, scope)
+							binding(node.ownerElement, cache, scope)
 						var key = tag.replace(express, "$1");
 						cache[key] = cache[key] || [];
 						cache[key].push({
@@ -211,7 +236,7 @@
 						each(nodeList(newNode.attributes), function(node) {
 							node.nodeValue.replace(express, function() {
 								if (node.name == "value")
-									binding(node.ownerElement, iscope);
+									binding(node.ownerElement, cache, iscope);
 								node.nodeValue = code(node.nodeValue, iscope);
 							});
 						});
@@ -229,6 +254,7 @@
 										eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
+									setCache(child);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -262,6 +288,7 @@
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
+									setCache(newNode);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -291,6 +318,7 @@
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
+									setCache(newNode);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -305,7 +333,8 @@
 				each(nodeList(node.attributes), function(node) {
 					node.nodeValue.replace(express, function() {
 						if (node.name == "value")
-							binding(node.ownerElement, iscope);
+							binding(node.ownerElement, cache, iscope);
+						setCache(node);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -322,6 +351,7 @@
 								eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
+							setCache(child);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
@@ -334,11 +364,10 @@
 	window.define = define;
 })(window);
 (function() {
-	function binding(elem, scope) {
-		function handle() {
-			scope[elem.getAttribute("model")] = elem.value;
-		}
+	function binding(elem, cache, scope) {
+		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 		try {
+			elem.model = elem.value.replace(express, "$1");
 			elem.addEventListener("change", handle, false);
 		} catch (e) {
 			try {
@@ -346,6 +375,9 @@
 			} catch (e) {
 				elem["onchange"] = handle;
 			}
+		}
+		function handle() {
+			scope[elem.model] = elem.value;
 		}
 	}
 	function ready(fn) {
@@ -471,39 +503,26 @@
 })(window);
 </script>
 <script type="text/javascript">
-ready(function() {
-	define(function() {
-		this.id = "3516";
-		this.name = "chengdong";
-		this.age = 27;
-		this.list1 = [ 1, 2 ];
-		this.list2 = [ 4, 5 ];
-		this.list3 = [ 7, 8 ];
-	});
-})
+	ready(function() {
+		define(function() {
+			this.id = "3516";
+			this.name = "chengdong";
+			this.age = 27;
+			this.list = [ 1, 2 ];
+			var thiz=this;
+			setInterval(function() {
+				thiz.list = [ 1, 2, new Date().toLocaleTimeString()];
+			}, 3000)
+		});
+	})
 </script>
 </head>
 <body>
-	@each(item1:list1,{
-		<div id="{{id}}" each="item1:list1">
-			@each(item2:list2,{
-			    {{item2}}. {{name}} : {{age}}
-				@each(item3:list3,{
-				   @when(false,{
-					   {{item2}}
-				   })
-				   <div id="{{index}}">
-				    @each(item1:list1,{
-					    {{item1}}. {{name}} : {{age}}
-					})
-	               </div>
-	               <input model="name" value="{{name}}"> 
-				   {{age}}
-				})
-			})
-		</div> 
-	})
-	<div>{{name}}</div>
-	<input model="name" value="{{name}}"> 
+	<ul>
+		<li id="{{index}}" each="item:list">
+			<input type="text" value="{{name}}"/>
+		</li>
+	</ul>
+	<input type="text" value="{{name}}"/>
 </body>
 </html>
