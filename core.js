@@ -7,14 +7,16 @@
 	var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
 	var $close = /[^\}\)]\}\s*\)/g;
 	function define(scope) {
-		init(query("body"));
 		var scope = new scope();
+		init(query("body"));
 		initCompiler(query("body"), cache, scope);
 		observe(scope, function(name, path) {
 			each(cache[path], this, function(node, i, thiz) {
 				var resolver = {
 					express : function() {
 						node.rnode.nodeValue = code(node.cnode.nodeValue, scope);
+						if (node.rnode.name == "value")
+							node.rnode.ownerElement.value = node.rnode.nodeValue;
 					},
 					attribute : function() {
 						try {
@@ -28,10 +30,12 @@
 					},
 					each : function() {
 						clearCache(node.cnode);
+						clearScache(cache);
 						eachCompiler([ node.cnode ], scope, node.rnode);
 					},
 					"@each" : function() {
 						clearCache(node.cnode);
+						clearScache(cache);
 						eachCompiler([ node.cnode ], scope, node.rnode);
 					}
 				};
@@ -54,6 +58,18 @@
 			list.push(this);
 		});
 	}
+	function setCache(node) {
+		if (!node.nodeValue)
+			return;
+		var key = node.nodeValue.replace(express, "$1");
+		cache[key] = cache[key] || [];
+		cache[key].push({
+			resolver : "express",
+			cnode : node.cloneNode(true),
+			rnode : node,
+			scache : true
+		});
+	}
 	function clearCache(node) {
 		node.cache = node.cache || [];
 		each(node.cache, node.cache, function(node, i, cache) {
@@ -62,6 +78,14 @@
 			if (node.parentNode)
 				node.parentNode.removeChild(node);
 			delete cache[i];
+		});
+	}
+	function clearScache(cache) {
+		each(cache, function() {
+			for ( var key in this) {
+				if (this[key].scache)
+					this.splice(key, 1);
+			}
 		});
 	}
 	var index = 0;
@@ -151,7 +175,7 @@
 					});
 					node.nodeValue.replace(express, function(tag) {
 						if (node.name == "value")
-							binding(node.ownerElement, scope)
+							binding(node.ownerElement, node, scope)
 						var key = tag.replace(express, "$1");
 						cache[key] = cache[key] || [];
 						cache[key].push({
@@ -191,6 +215,8 @@
 	}
 	function eachCompiler(node, iscope, content) {
 		each(node, function(node) {
+			if (!content && !node.parentNode)
+				return;
 			switch (node.nodeType) {
 			case 1:
 				if (node.hasAttribute("each")) {
@@ -206,7 +232,7 @@
 						each(nodeList(newNode.attributes), function(node) {
 							node.nodeValue.replace(express, function() {
 								if (node.name == "value")
-									binding(node.ownerElement, iscope);
+									binding(node.ownerElement, node, iscope);
 								node.nodeValue = code(node.nodeValue, iscope);
 							});
 						});
@@ -220,10 +246,10 @@
 								child.nodeValue.replace($chen, function() {
 									if (!child.childList)
 										eachNode(child.parentNode);
-									if (child.parentNode)
-										eachCompiler([ child ], scope);
+									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
+									setCache(child);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -257,6 +283,7 @@
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
+									setCache(newNode);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -286,6 +313,7 @@
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
+									setCache(newNode);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -300,7 +328,8 @@
 				each(nodeList(node.attributes), function(node) {
 					node.nodeValue.replace(express, function() {
 						if (node.name == "value")
-							binding(node.ownerElement, iscope);
+							binding(node.ownerElement, node, iscope);
+						setCache(node);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -313,10 +342,10 @@
 						child.nodeValue.replace($chen, function() {
 							if (!child.childList)
 								eachNode(child.parentNode);
-							if (child.parentNode)
-								eachCompiler([ child ], iscope);
+							eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
+							setCache(child);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
@@ -329,11 +358,10 @@
 	window.define = define;
 })(window);
 (function() {
-	function binding(elem, scope) {
-		function handle() {
-			scope[elem.getAttribute("model")] = elem.value;
-		}
+	function binding(elem, node, scope) {
+		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 		try {
+			elem.model = node.nodeValue.replace(express, "$1");
 			elem.addEventListener("change", handle, false);
 		} catch (e) {
 			try {
@@ -342,26 +370,32 @@
 				elem["onchange"] = handle;
 			}
 		}
+		function handle() {
+			scope[elem.model] = elem.value;
+		}
 	}
 	function ready(fn) {
-		var d = window.document, done = false, init = function() {
+		var doc = window.document, done = false, init = function() {
 			if (!done) {
 				done = true;
 				fn();
 			}
 		};
 		(function() {
-			try {
-				d.documentElement.doScroll('left');
-			} catch (e) {
-				setTimeout(arguments.callee, 50);
+			if (!done) {
+				try {
+					doc.documentElement.doScroll('left');
+				} catch (e) {
+					setTimeout(arguments.callee, 50);
+					return;
+				}
+				init();
 				return;
 			}
-			init();
 		})();
-		d.onreadystatechange = function() {
-			if (d.readyState == 'complete') {
-				d.onreadystatechange = null;
+		doc.onreadystatechange = function() {
+			if (doc.readyState == 'complete') {
+				doc.onreadystatechange = null;
 				init();
 			}
 		};
