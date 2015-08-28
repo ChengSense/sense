@@ -512,12 +512,7 @@ ready(function() {
 		this.age = 27;
 		this.list1 = [ 1, 2 ];
 		this.list2 = [ 4, 5 ];
-		/* 
-		var thiz=this;
-		setInterval(function() {
-			thiz.list = [ 1, 2, new Date().toLocaleTimeString()];
-		}, 3000) 
-		*/
+		this.list3 = [ 4, 5 ];
 	});
 })
 </script>
@@ -526,9 +521,14 @@ ready(function() {
 	@each(item1:list1,{
 		<div id="{{id}}">
 			@each(item2:list2,{
+			    <br/>
 			    {{item2}}. {{name}} : {{age}}
 			    @when(true,{
-				   <input type="text" value="{{name}}"> 
+			       <ul>
+			         <li each="item1:list1">
+			         {{name + item1}}
+			         </li>
+			       </ul>
 			   })
 			   {{age}}
 			})
