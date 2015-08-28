@@ -35,7 +35,7 @@
      条件 @when( 布尔表达式， {   
               你的业务逻辑   
           })    
-实例：  
+示例：  
   js   ：   
   
     	define(function() {   
@@ -67,7 +67,7 @@
     	})   
     	<input type="text" value="{{name}}">    
     	<div>{{name}}</div>    
-  完整实例：   
+  完整示例：   
   
         <!DOCTYPE html>   
         <html>   
