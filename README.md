@@ -42,17 +42,11 @@
         	define(function() {   
         		this.id = "3516";   
         		this.name = "chengdong";   
-        		
         		this.age = 27;   
-        		
         		this.list1 = [ 1, 2 ];   
-        		
         		this.list2 = [ 4, 5 ];  
-        		
         		this.list3 = [ 4, 5 ];  
-        		
         	});   
-        	
         })   
         
   html ：    
