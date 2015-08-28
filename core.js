@@ -58,16 +58,32 @@
 			list.push(this);
 		});
 	}
-	function setCache(node) {
-		if (!node.nodeValue)
+	function setCache(node,iscope,rnode) {
+		if (node.nodeValue==null)
 			return;
-		var key = node.nodeValue.replace(express, "$1");
-		cache[key] = cache[key] || [];
-		cache[key].push({
-			resolver : "express",
-			cnode : node.cloneNode(true),
-			rnode : node,
-			scache : true
+		(node.name||"").replace(express, function(tag) {
+			var key = tag.replace(express, "$1");
+			if(!iscope[key])
+			   return;
+			cache[key] = cache[key] || [];
+			cache[key].push({
+				resolver : "attribute",
+				cnode : node,
+				rnode : rnode,
+			    scache : true
+			});
+		});
+		node.nodeValue.replace(express, function(tag) {
+			var key = node.nodeValue.replace(express, "$1");
+			if(!iscope[key])
+			   return;
+			cache[key] = cache[key] || [];
+			cache[key].push({
+				resolver : "express",
+				cnode : node.cloneNode(true),
+				rnode : node,
+				scache : true
+			});
 		});
 	}
 	function clearCache(node) {
@@ -230,6 +246,12 @@
 						node.cache.push(newNode);
 						(content || node).parentNode.insertBefore(newNode, content || node);
 						each(nodeList(newNode.attributes), function(node) {
+						    node.name.replace(express, function(tag) {
+								var newNode = document.createAttribute(code(node.name, scope));
+								node.ownerElement.setAttributeNode(newNode);
+								node.ownerElement.removeAttributeNode(node);
+						        setCache(node,iscope, newNode);
+							});
 							node.nodeValue.replace(express, function() {
 								if (node.name == "value")
 									binding(node.ownerElement, node, iscope);
@@ -249,7 +271,7 @@
 									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
-									setCache(child);
+									setCache(child,iscope);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -283,7 +305,7 @@
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -313,7 +335,7 @@
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -326,10 +348,16 @@
 				}
 			default:
 				each(nodeList(node.attributes), function(node) {
+				    node.name.replace(express, function(tag) {
+						var newNode = document.createAttribute(code(node.name, iscope));
+						node.ownerElement.setAttributeNode(newNode);
+						node.ownerElement.removeAttributeNode(node);
+				        setCache(node,iscope,newNode);
+					});
 					node.nodeValue.replace(express, function() {
 						if (node.name == "value")
 							binding(node.ownerElement, node, iscope);
-						setCache(node);
+						setCache(node,iscope);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -345,7 +373,7 @@
 							eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
-							setCache(child);
+							setCache(child,iscope);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
