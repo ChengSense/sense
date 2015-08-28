@@ -52,39 +52,22 @@
   html ：    
   
         @each(item1:list1,{  
-        
         		<div id="{{id}}">  
-        		
         			@each(item2:list2,{   
-        			
         			    <br/>   
-        			    
         			    {{item2}}. {{name}} : {{age}}   
-        			    
         			    @when(true,{   
-        			    
         			       <ul>   
-        			       
         			         <li each="item1:list1">   
-        			         
         			         {{name + item1}}   
-        			         
         			         </li>   
-        			         
         			       </ul>   
-        			       
         			   })   
-        			   
         			   {{age}}   
-        			   
         			})   
-        			
         		</div>   
-        		
         	})   
-        	
         	<input type="text" value="{{name}}">    
-        	
         	<div>{{name}}</div>    
     
 说明：  
