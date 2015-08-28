@@ -77,9 +77,8 @@
         	<script type="text/javascript">  
         	ready(function() {  
         		define(function() {  
-        			this.id = "3516";  
-        			this.name = "chengdong";  
         			this.age = 27;  
+        			this.name = "chengdong";  
         			this.list1 = [ 1, 2 ];  
         			this.list2 = [ 4, 5 ];  
         			this.list3 = [ 4, 5 ];
