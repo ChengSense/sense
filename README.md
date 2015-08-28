@@ -99,7 +99,7 @@
         	<input type="text" value="{{name}}">    
         	
         	<div>{{name}}</div>    
-        	
+    
 说明：  
  
          目前是第一个版本，主体功能已经稳定，其他功能逐步完善，可以尝开发；如想试玩可直接拷贝test.html
