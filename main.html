@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>ense-index</title>
+<title>sense-index</title>
 <script type="text/javascript">
 (function() {
 	var cache = {};
@@ -63,16 +63,32 @@
 			list.push(this);
 		});
 	}
-	function setCache(node) {
-		if (!node.nodeValue)
+	function setCache(node,iscope,rnode) {
+		if (node.nodeValue==null)
 			return;
-		var key = node.nodeValue.replace(express, "$1");
-		cache[key] = cache[key] || [];
-		cache[key].push({
-			resolver : "express",
-			cnode : node.cloneNode(true),
-			rnode : node,
-			scache : true
+		(node.name||"").replace(express, function(tag) {
+			var key = tag.replace(express, "$1");
+			if(!iscope[key])
+			   return;
+			cache[key] = cache[key] || [];
+			cache[key].push({
+				resolver : "attribute",
+				cnode : node,
+				rnode : rnode,
+			    scache : true
+			});
+		});
+		node.nodeValue.replace(express, function(tag) {
+			var key = node.nodeValue.replace(express, "$1");
+			if(!iscope[key])
+			   return;
+			cache[key] = cache[key] || [];
+			cache[key].push({
+				resolver : "express",
+				cnode : node.cloneNode(true),
+				rnode : node,
+				scache : true
+			});
 		});
 	}
 	function clearCache(node) {
@@ -92,7 +108,6 @@
 					this.splice(key, 1);
 			}
 		});
-		log(cache)
 	}
 	var index = 0;
 	function eachNode(node) {
@@ -181,7 +196,7 @@
 					});
 					node.nodeValue.replace(express, function(tag) {
 						if (node.name == "value")
-							binding(node.ownerElement, cache, scope)
+							binding(node.ownerElement, node, scope)
 						var key = tag.replace(express, "$1");
 						cache[key] = cache[key] || [];
 						cache[key].push({
@@ -221,6 +236,8 @@
 	}
 	function eachCompiler(node, iscope, content) {
 		each(node, function(node) {
+			if (!content && !node.parentNode)
+				return;
 			switch (node.nodeType) {
 			case 1:
 				if (node.hasAttribute("each")) {
@@ -234,9 +251,15 @@
 						node.cache.push(newNode);
 						(content || node).parentNode.insertBefore(newNode, content || node);
 						each(nodeList(newNode.attributes), function(node) {
+						    node.name.replace(express, function(tag) {
+								var newNode = document.createAttribute(code(node.name, scope));
+								node.ownerElement.setAttributeNode(newNode);
+								node.ownerElement.removeAttributeNode(node);
+						        setCache(node,iscope, newNode);
+							});
 							node.nodeValue.replace(express, function() {
 								if (node.name == "value")
-									binding(node.ownerElement, cache, iscope);
+									binding(node.ownerElement, node, iscope);
 								node.nodeValue = code(node.nodeValue, iscope);
 							});
 						});
@@ -250,11 +273,10 @@
 								child.nodeValue.replace($chen, function() {
 									if (!child.childList)
 										eachNode(child.parentNode);
-									if (child.parentNode)
-										eachCompiler([ child ], scope);
+									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
-									setCache(child);
+									setCache(child,iscope);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -288,7 +310,7 @@
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -318,7 +340,7 @@
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -331,10 +353,16 @@
 				}
 			default:
 				each(nodeList(node.attributes), function(node) {
+				    node.name.replace(express, function(tag) {
+						var newNode = document.createAttribute(code(node.name, iscope));
+						node.ownerElement.setAttributeNode(newNode);
+						node.ownerElement.removeAttributeNode(node);
+				        setCache(node,iscope,newNode);
+					});
 					node.nodeValue.replace(express, function() {
 						if (node.name == "value")
-							binding(node.ownerElement, cache, iscope);
-						setCache(node);
+							binding(node.ownerElement, node, iscope);
+						setCache(node,iscope);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -347,11 +375,10 @@
 						child.nodeValue.replace($chen, function() {
 							if (!child.childList)
 								eachNode(child.parentNode);
-							if (child.parentNode)
-								eachCompiler([ child ], iscope);
+							eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
-							setCache(child);
+							setCache(child,iscope);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
@@ -364,10 +391,10 @@
 	window.define = define;
 })(window);
 (function() {
-	function binding(elem, cache, scope) {
+	function binding(elem, node, scope) {
 		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 		try {
-			elem.model = elem.value.replace(express, "$1");
+			elem.model = node.nodeValue.replace(express, "$1");
 			elem.addEventListener("change", handle, false);
 		} catch (e) {
 			try {
@@ -381,24 +408,27 @@
 		}
 	}
 	function ready(fn) {
-		var d = window.document, done = false, init = function() {
+		var doc = window.document, done = false, init = function() {
 			if (!done) {
 				done = true;
 				fn();
 			}
 		};
 		(function() {
-			try {
-				d.documentElement.doScroll('left');
-			} catch (e) {
-				setTimeout(arguments.callee, 50);
+			if (!done) {
+				try {
+					doc.documentElement.doScroll('left');
+				} catch (e) {
+					setTimeout(arguments.callee, 50);
+					return;
+				}
+				init();
 				return;
 			}
-			init();
 		})();
-		d.onreadystatechange = function() {
-			if (d.readyState == 'complete') {
-				d.onreadystatechange = null;
+		doc.onreadystatechange = function() {
+			if (doc.readyState == 'complete') {
+				doc.onreadystatechange = null;
 				init();
 			}
 		};
@@ -503,26 +533,36 @@
 })(window);
 </script>
 <script type="text/javascript">
-	ready(function() {
-		define(function() {
-			this.id = "3516";
-			this.name = "chengdong";
-			this.age = 27;
-			this.list = [ 1, 2 ];
-			var thiz=this;
-			setInterval(function() {
-				thiz.list = [ 1, 2, new Date().toLocaleTimeString()];
-			}, 3000)
-		});
-	})
+ready(function() {
+	define(function() {
+		this.id = "3516";
+		this.name = "chengdong";
+		this.age = 27;
+		this.list1 = [ 1, 2 ];
+		this.list2 = [ 4, 5 ];
+		this.list3 = [ 4, 5 ];
+	});
+})
 </script>
 </head>
 <body>
-	<ul>
-		<li id="{{index}}" each="item:list">
-			<input type="text" value="{{name}}"/>
-		</li>
-	</ul>
-	<input type="text" value="{{name}}"/>
+	@each(item1:list1,{
+		<div id="{{id}}" {{name}}>
+			@each(item2:list2,{
+			    <br/>
+			    {{item2}}. {{name}} : {{age}}
+			    @when(true,{
+			       <ul>
+			         <li each="item1:list1">
+			         {{name + item1}}
+			         </li>
+			       </ul>
+			   })
+			   {{age}}
+			})
+		</div> 
+	})
+	<input type="text" value="{{name}}"> 
+	<div>{{name}}</div> 
 </body>
 </html>
