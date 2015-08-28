@@ -39,11 +39,8 @@
   js   ：   
   
         ready(function() {  
-        
         	define(function() {   
-        	
         		this.id = "3516";   
-        		
         		this.name = "chengdong";   
         		
         		this.age = 27;   
