@@ -73,7 +73,7 @@
         <html>   
         	<head>  
         	<title>sense-index</title>  
-        	<script type="text/javascript" src="../sense.js"></script>  
+        	<script type="text/javascript" src="../core.js"></script>  
         	<script type="text/javascript">  
         	ready(function() {  
         		define(function() {  
