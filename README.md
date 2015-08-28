@@ -41,6 +41,7 @@
           })    
 实例：  
   js   ：   
+  
         ready(function() {  
         
         	define(function() {   
