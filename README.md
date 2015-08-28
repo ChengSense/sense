@@ -1,5 +1,4 @@
-# sense
-web mvvm framework
+# sense web mvvm framework
 
 版本：1.0.0
 
@@ -57,7 +56,6 @@ web mvvm framework
         		this.list2 = [ 4, 5 ];
         		
         		this.list3 = [ 4, 5 ];
-        		
         	});
         	
         })
@@ -65,37 +63,21 @@ web mvvm framework
   html ：  
         @each(item1:list1,{
         		<div id="{{id}}">
-        		
         			@each(item2:list2,{
-        			
         			    <br/>
-        			    
         			    {{item2}}. {{name}} : {{age}}
-        			    
         			    @when(true,{
-        			    
         			       <ul>
-        			       
         			         <li each="item1:list1">
-        			         
         			         {{name + item1}}
-        			         
         			         </li>
-        			         
         			       </ul>
-        			       
         			   })
-        			   
         			   {{age}}
-        			   
         			})
-        			
         		</div> 
-        		
         	})
-        	
         	<input type="text" value="{{name}}"> 
-        	
         	<div>{{name}}</div> 
 说明：
 
