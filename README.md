@@ -42,7 +42,13 @@
           
      条件 @when( 布尔表达式 ,{   
               你的业务逻辑   
-          })    
+          })
+          
+          或者   
+          
+          <div each="item:list">   
+             {{index + item}}  
+          </li>
 示例：  
   js   ：   
   
