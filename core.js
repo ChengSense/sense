@@ -58,25 +58,25 @@
 			list.push(this);
 		});
 	}
-	function setCache(node, iscope, rnode) {
-		if (node.nodeValue == null)
+	function setCache(node,iscope,rnode) {
+		if (node.nodeValue==null)
 			return;
-		(node.name || "").replace(express, function(tag) {
+		(node.name||"").replace(express, function(tag) {
 			var key = tag.replace(express, "$1");
-			if (!iscope[key])
-				return;
+			if(!iscope[key])
+			   return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
 				resolver : "attribute",
 				cnode : node,
 				rnode : rnode,
-				scache : true
+			    scache : true
 			});
 		});
 		node.nodeValue.replace(express, function(tag) {
 			var key = node.nodeValue.replace(express, "$1");
-			if (!iscope[key])
-				return;
+			if(!iscope[key])
+			   return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
 				resolver : "express",
@@ -237,7 +237,6 @@
 			case 1:
 				if (node.hasAttribute("each")) {
 					var expreses = node.getAttribute("each").split(":");
-					var insertion = (content || node);
 					node.variable = expreses.shift(), node.dataSource = expreses.pop();
 					node.cache = node.cache || [];
 					each(codei(node.dataSource, iscope), function(item, index) {
@@ -245,16 +244,17 @@
 						var newNode = node.clone(true);
 						newNode.removeAttribute("each");
 						node.cache.push(newNode);
-						insertion.parentNode.insertBefore(newNode, insertion);
+						(content || node).parentNode.insertBefore(newNode, content || node);
 						each(nodeList(newNode.attributes), function(node) {
-							node.name.replace(express, function(tag) {
+						    node.name.replace(express, function(tag) {
 								var newNode = document.createAttribute(code(node.name, scope));
 								node.ownerElement.setAttributeNode(newNode);
 								node.ownerElement.removeAttributeNode(node);
-								setCache(node, iscope, newNode);
+						        setCache(node,iscope, newNode);
 							});
 							node.nodeValue.replace(express, function() {
-								binding(node.ownerElement, node, iscope);
+								if (node.name == "value")
+									binding(node.ownerElement, node, iscope);
 								node.nodeValue = code(node.nodeValue, iscope);
 							});
 						});
@@ -271,7 +271,7 @@
 									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
-									setCache(child, iscope);
+									setCache(child,iscope);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -283,8 +283,7 @@
 					break;
 				}
 			default:
-				var insertion = (content || node);
-				if ($each.test(node.nodeValue)) {
+				if (node.nodeValue && node.nodeValue.match($each)) {
 					var expreses = node.nodeValue.replace($each, "$2").split(":");
 					node.variable = expreses.shift(), node.dataSource = expreses.pop();
 					node.cache = node.cache || [];
@@ -294,7 +293,7 @@
 						each(nodeList(node.childList), function(child) {
 							var newNode = this.clone(true);
 							node.cache.push(newNode);
-							insertion.parentNode.insertBefore(newNode, insertion);
+							(content || node).parentNode.insertBefore(newNode, content || node);
 							switch (child.nodeType) {
 							case 1:
 								eachCompiler([ newNode ], scope);
@@ -306,7 +305,7 @@
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode, iscope);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -317,14 +316,14 @@
 						node.parentNode.removeChild(node);
 					break;
 				}
-				if ($when.test(node.nodeValue)) {
+				if (node.nodeValue && node.nodeValue.match($when)) {
 					var expreses = node.nodeValue.replace($when, "$2");
 					if (eval(expreses)) {
 						node.cache = node.cache || [];
 						each(nodeList(node.childList), function(child) {
 							var newNode = this.clone(true);
 							node.cache.push(newNode);
-							insertion.parentNode.insertBefore(newNode, insertion);
+							(content || node).parentNode.insertBefore(newNode, content || node);
 							switch (child.nodeType) {
 							case 1:
 								eachCompiler([ newNode ], iscope);
@@ -336,7 +335,7 @@
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode, iscope);
+									setCache(newNode,iscope);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -348,15 +347,16 @@
 					break;
 				}
 				each(nodeList(node.attributes), function(node) {
-					node.name.replace(express, function(tag) {
+				    node.name.replace(express, function(tag) {
 						var newNode = document.createAttribute(code(node.name, iscope));
 						node.ownerElement.setAttributeNode(newNode);
 						node.ownerElement.removeAttributeNode(node);
-						setCache(node, iscope, newNode);
+				        setCache(node,iscope,newNode);
 					});
 					node.nodeValue.replace(express, function() {
-						binding(node.ownerElement, node, iscope);
-						setCache(node, iscope);
+						if (node.name == "value")
+							binding(node.ownerElement, node, iscope);
+						setCache(node,iscope);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -372,7 +372,7 @@
 							eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
-							setCache(child, iscope);
+							setCache(child,iscope);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
@@ -386,8 +386,6 @@
 })(window);
 (function() {
 	function binding(elem, node, scope) {
-		if (node.name != "value")
-			 return;
 		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 		elem.model = node.nodeValue.replace(express, "$1");
 		elem.on("change", function handle() {
@@ -425,7 +423,7 @@
 					each(this["eventManager"][type], function() {
 						this();
 					});
-				}, false);
+				},false);
 			}
 			this["eventManager"][type].push(call);
 		},
@@ -594,17 +592,23 @@
 		}
 		if (obj.length != undefined) {
 			for ( var i = 0; i < obj.length; i++) {
-				func.call(obj[i], obj[i], i, argu);
+				if (obj.hasOwnProperty(i)) {
+					func.call(obj[i], obj[i], i, argu);
+				}
 			}
+			if (2 < args.length) {
+				return argu;
+			}
+			return;
 		} else {
 			for ( var i in obj) {
 				if (obj.hasOwnProperty(i)) {
 					func.call(obj[i], obj[i], i, argu);
 				}
 			}
-		}
-		if (2 < args.length) {
-			return argu;
+			if (2 < args.length) {
+				return argu;
+			}
 		}
 	}
 	function log(obj) {
