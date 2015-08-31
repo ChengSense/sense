@@ -46,9 +46,9 @@
           
           或者   
           
-          <div each="item:list">   
-             {{index + item}}  
-          </li>
+          <!@when( 布尔表达式 ,{>   
+              你的业务逻辑   
+          <!})>
 示例：  
   js   ：   
   
