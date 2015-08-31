@@ -5,7 +5,7 @@
 	var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
 	var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
 	var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
-	var $close = /[^\}\)]\}\s*\)/g;
+	var $close = /[^\}\)]*\}\s*\)/g;
 	function define(scope) {
 		var scope = new scope();
 		init(query("body"));
@@ -58,25 +58,25 @@
 			list.push(this);
 		});
 	}
-	function setCache(node,iscope,rnode) {
-		if (node.nodeValue==null)
+	function setCache(node, iscope, rnode) {
+		if (node.nodeValue == null)
 			return;
-		(node.name||"").replace(express, function(tag) {
+		(node.name || "").replace(express, function(tag) {
 			var key = tag.replace(express, "$1");
-			if(!iscope[key])
-			   return;
+			if (!iscope[key])
+				return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
 				resolver : "attribute",
 				cnode : node,
 				rnode : rnode,
-			    scache : true
+				scache : true
 			});
 		});
 		node.nodeValue.replace(express, function(tag) {
 			var key = node.nodeValue.replace(express, "$1");
-			if(!iscope[key])
-			   return;
+			if (!iscope[key])
+				return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
 				resolver : "express",
@@ -170,7 +170,7 @@
 					node.parentNode.replaceChild(TextNode, node);
 					cache[key].push({
 						resolver : "each",
-						cnode : node.cloneNode(true),
+						cnode : node.clone(true),
 						rnode : TextNode,
 						cache : []
 					});
@@ -237,24 +237,24 @@
 			case 1:
 				if (node.hasAttribute("each")) {
 					var expreses = node.getAttribute("each").split(":");
+					var insertion = (content || node);
 					node.variable = expreses.shift(), node.dataSource = expreses.pop();
 					node.cache = node.cache || [];
 					each(codei(node.dataSource, iscope), function(item, index) {
 						iscope[node.variable] = item, iscope["index"] = index;
-						var newNode = node.cloneNode(true);
+						var newNode = node.clone(true);
 						newNode.removeAttribute("each");
 						node.cache.push(newNode);
-						(content || node).parentNode.insertBefore(newNode, content || node);
+						insertion.parentNode.insertBefore(newNode, insertion);
 						each(nodeList(newNode.attributes), function(node) {
-						    node.name.replace(express, function(tag) {
+							node.name.replace(express, function(tag) {
 								var newNode = document.createAttribute(code(node.name, scope));
 								node.ownerElement.setAttributeNode(newNode);
 								node.ownerElement.removeAttributeNode(node);
-						        setCache(node,iscope, newNode);
+								setCache(node, iscope, newNode);
 							});
 							node.nodeValue.replace(express, function() {
-								if (node.name == "value")
-									binding(node.ownerElement, node, iscope);
+								binding(node.ownerElement, node, iscope);
 								node.nodeValue = code(node.nodeValue, iscope);
 							});
 						});
@@ -264,14 +264,14 @@
 							case 1:
 								eachCompiler([ child ], scope);
 								break;
-							case 3:
+							default:
 								child.nodeValue.replace($chen, function() {
 									if (!child.childList)
 										eachNode(child.parentNode);
 									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
-									setCache(child,iscope);
+									setCache(child, iscope);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
 								break;
@@ -282,8 +282,9 @@
 						node.parentNode.removeChild(node);
 					break;
 				}
-			case 3:
-				if (node.nodeValue && node.nodeValue.match($each)) {
+			default:
+				var insertion = (content || node);
+				if ($each.test(node.nodeValue)) {
 					var expreses = node.nodeValue.replace($each, "$2").split(":");
 					node.variable = expreses.shift(), node.dataSource = expreses.pop();
 					node.cache = node.cache || [];
@@ -291,21 +292,21 @@
 						iscope[node.variable] = item, iscope["index"] = index;
 						var scope = Object.create(iscope || {});
 						each(nodeList(node.childList), function(child) {
-							var newNode = this.cloneNode(true);
+							var newNode = this.clone(true);
 							node.cache.push(newNode);
-							(content || node).parentNode.insertBefore(newNode, content || node);
+							insertion.parentNode.insertBefore(newNode, insertion);
 							switch (child.nodeType) {
 							case 1:
 								eachCompiler([ newNode ], scope);
 								break;
-							case 3:
+							default:
 								newNode.nodeValue.replace($chen, function() {
 									if (child.childList)
 										newNode.childList = child.childList;
 									eachCompiler([ newNode ], scope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode,iscope);
+									setCache(newNode, iscope);
 									newNode.nodeValue = code(newNode.nodeValue, scope);
 								});
 								break;
@@ -316,26 +317,26 @@
 						node.parentNode.removeChild(node);
 					break;
 				}
-				if (node.nodeValue && node.nodeValue.match($when)) {
+				if ($when.test(node.nodeValue)) {
 					var expreses = node.nodeValue.replace($when, "$2");
 					if (eval(expreses)) {
 						node.cache = node.cache || [];
 						each(nodeList(node.childList), function(child) {
-							var newNode = this.cloneNode(true);
+							var newNode = this.clone(true);
 							node.cache.push(newNode);
-							(content || node).parentNode.insertBefore(newNode, content || node);
+							insertion.parentNode.insertBefore(newNode, insertion);
 							switch (child.nodeType) {
 							case 1:
 								eachCompiler([ newNode ], iscope);
 								break;
-							case 3:
+							default:
 								newNode.nodeValue.replace($chen, function() {
 									if (child.childList)
 										newNode.childList = child.childList;
 									eachCompiler([ newNode ], iscope);
 								});
 								newNode.nodeValue.replace(express, function() {
-									setCache(newNode,iscope);
+									setCache(newNode, iscope);
 									newNode.nodeValue = code(newNode.nodeValue, iscope);
 								});
 								break;
@@ -346,18 +347,16 @@
 						node.parentNode.removeChild(node);
 					break;
 				}
-			default:
 				each(nodeList(node.attributes), function(node) {
-				    node.name.replace(express, function(tag) {
+					node.name.replace(express, function(tag) {
 						var newNode = document.createAttribute(code(node.name, iscope));
 						node.ownerElement.setAttributeNode(newNode);
 						node.ownerElement.removeAttributeNode(node);
-				        setCache(node,iscope,newNode);
+						setCache(node, iscope, newNode);
 					});
 					node.nodeValue.replace(express, function() {
-						if (node.name == "value")
-							binding(node.ownerElement, node, iscope);
-						setCache(node,iscope);
+						binding(node.ownerElement, node, iscope);
+						setCache(node, iscope);
 						node.nodeValue = code(node.nodeValue, iscope);
 					});
 				});
@@ -366,14 +365,14 @@
 					case 1:
 						eachCompiler([ child ], iscope);
 						break;
-					case 3:
+					default:
 						child.nodeValue.replace($chen, function() {
 							if (!child.childList)
 								eachNode(child.parentNode);
 							eachCompiler([ child ], iscope);
 						});
 						child.nodeValue.replace(express, function() {
-							setCache(child,iscope);
+							setCache(child, iscope);
 							child.nodeValue = code(child.nodeValue, iscope);
 						});
 						break;
@@ -387,46 +386,206 @@
 })(window);
 (function() {
 	function binding(elem, node, scope) {
+		if (node.name != "value")
+			 return;
 		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
-		try {
-			elem.model = node.nodeValue.replace(express, "$1");
-			elem.addEventListener("change", handle, false);
-		} catch (e) {
-			try {
-				elem.attachEvent("onchange", handle);
-			} catch (e) {
-				elem["onchange"] = handle;
-			}
-		}
-		function handle() {
+		elem.model = node.nodeValue.replace(express, "$1");
+		elem.on("change", function handle() {
 			scope[elem.model] = elem.value;
-		}
+		});
 	}
-	function ready(fn) {
-		var doc = window.document, done = false, init = function() {
-			if (!done) {
-				done = true;
-				fn();
-			}
-		};
-		(function() {
-			if (!done) {
-				try {
-					doc.documentElement.doScroll('left');
-				} catch (e) {
-					setTimeout(arguments.callee, 50);
-					return;
-				}
-				init();
+	function ready(func) {
+		var done = false, init = function() {
+			if (done) {
+				document.removeEventListener("DOMContentLoaded", init, false);
+				window.removeEventListener("load", init, false);
+				func();
 				return;
 			}
-		})();
-		doc.onreadystatechange = function() {
-			if (doc.readyState == 'complete') {
-				doc.onreadystatechange = null;
+			if (document.readyState == "complete") {
+				done = true;
 				init();
 			}
 		};
+		init();
+		document.addEventListener("DOMContentLoaded", init, false);
+		window.addEventListener("load", init, false);
+	}
+	function setPrototype(object, config) {
+		for ( var key in config) {
+			object.prototype[key] = config[key];
+		}
+	}
+	setPrototype(Node, {
+		on : function(type, call) {
+			this["eventManager"] = this["eventManager"] || {};
+			if (!this["eventManager"][type]) {
+				this["eventManager"][type] = [];
+				this.addEventListener(type, function(e) {
+					each(this["eventManager"][type], function() {
+						this();
+					});
+				}, false);
+			}
+			this["eventManager"][type].push(call);
+		},
+		off : function(type, call) {
+			each(this["eventManager"][type], this["eventManager"][type], function(fuc, i, list) {
+				if (call != undefined && this != call)
+					return;
+				delete list[i];
+			});
+			if (!this["eventManager"][type][0])
+				this.removeEventListener(type, call, false);
+		}
+	});
+	setPrototype(Node, {
+		clone : function() {
+			switch (this.nodeType) {
+			case 1:
+				if (undefined != window.jQuery)
+					return jQuery(this).clone(true)[0];
+			default:
+				var node = this.cloneNode(true);
+				each(node["eventManager"] = this["eventManager"], function(list, type) {
+					node.addEventListener(type, function(e) {
+						each(this["eventManager"][type], function() {
+							this();
+						});
+					}, false);
+				});
+				return node;
+			}
+		}
+	});
+	setPrototype(NodeList, {
+		on : function(type, call, bol) {
+			each(this, function(node) {
+				node.on(type, call, bol);
+			});
+		},
+		off : function(type, call, bol) {
+			each(this, function(node) {
+				node.off(type, call, bol);
+			});
+		},
+		append : function(node) {
+			switch (typeof node) {
+			case "string":
+				var newNode = document.createElement("div");
+				newNode.innerHTML = node;
+				each(newNode.childNodes, this[0], function(node, i, thiz) {
+					thiz.appendChild(node);
+				});
+				break;
+			default:
+				switch (node.length) {
+				case undefined:
+					this[0].appendChild(node);
+					break;
+				default:
+					each(node, this[0], function(node, i, thiz) {
+						thiz.appendChild(node);
+					});
+					break;
+				}
+				break;
+			}
+		},
+		after : function(node) {
+			switch (typeof node) {
+			case "string":
+				var newNode = document.createElement("div");
+				newNode.innerHTML = node;
+				each(newNode.childNodes, this[0], function(node, i, thiz) {
+					thiz.parentNode.insertBefore(this, thiz.nextSibling);
+				});
+				break;
+			default:
+				switch (node.length) {
+				case undefined:
+					this[0].parentNode.insertBefore(node, this[0].nextSibling);
+					break;
+				default:
+					each(node, this[0], function(node, i, thiz) {
+						thiz.parentNode.insertBefore(node, thiz.nextSibling);
+					});
+					break;
+				}
+				break;
+			}
+		},
+		before : function(node) {
+			switch (typeof node) {
+			case "string":
+				var newNode = document.createElement("div");
+				newNode.innerHTML = node;
+				each(newNode.childNodes, this[0], function(node, i, thiz) {
+					thiz.parentNode.insertBefore(this, thiz);
+				});
+				break;
+			default:
+				switch (node.length) {
+				case undefined:
+					this[0].parentNode.insertBefore(node, this[0]);
+					break;
+				default:
+					each(node, this[0], function(node, i, thiz) {
+						thiz.parentNode.insertBefore(node, thiz);
+					});
+					break;
+				}
+				break;
+			}
+		},
+		replace : function(node) {
+			switch (typeof node) {
+			case "string":
+				var newNode = document.createElement("div");
+				newNode.innerHTML = node;
+				each(newNode.childNodes, this[0], function(node, i, thiz) {
+					thiz.parentNode.replaceChild(this, thiz);
+				});
+				break;
+			default:
+				switch (node.length) {
+				case undefined:
+					this[0].parentNode.replaceChild(node, this[0]);
+					break;
+				default:
+					each(node, this[0], function(node, i, thiz) {
+						thiz.parentNode.replaceChild(node, thiz);
+					});
+					break;
+				}
+				break;
+			}
+		},
+		remove : function() {
+			each(this, function(node) {
+				node.parentNode.removeChild(node);
+			});
+		},
+		clone : function(bol) {
+			return this[0].cloneNode(bol || true);
+		}
+	});
+	function query(express) {
+		try {
+			var doc = document.querySelectorAll(express);
+			switch (typeof doc[0]) {
+			case undefined:
+				var newNode = document.createElement("div");
+				newNode.innerHTML = express;
+				return newNode.childNodes;
+			default:
+				return doc;
+			}
+		} catch (e) {
+			var newNode = document.createElement("div");
+			newNode.innerHTML = express;
+			return newNode.childNodes;
+		}
 	}
 	function each(obj, arg, fu) {
 		var args = arguments, func = (args[2] || args[1]), argu = (2 < args.length ? arg : undefined);
@@ -435,57 +594,26 @@
 		}
 		if (obj.length != undefined) {
 			for ( var i = 0; i < obj.length; i++) {
-				if (obj.hasOwnProperty(i)) {
-					func.call(obj[i], obj[i], i, argu);
-				}
+				func.call(obj[i], obj[i], i, argu);
 			}
-			if (2 < args.length) {
-				return argu;
-			}
-			return;
 		} else {
 			for ( var i in obj) {
 				if (obj.hasOwnProperty(i)) {
 					func.call(obj[i], obj[i], i, argu);
 				}
 			}
-			if (2 < args.length) {
-				return argu;
-			}
 		}
-	}
-	function extend(object, newobj, _super) {
-		function _extend() {
-			return each(newobj, (_super ? {} : this), function(item, key, thiz) {
-				thiz[key] = item;
-			});
+		if (2 < args.length) {
+			return argu;
 		}
-		return _extend.apply(object, arguments);
-	}
-	function query(express) {
-		return extend(document.querySelectorAll(express), {
-			on : function(type, handle) {
-				each(this, function() {
-					try {
-						this.addEventListener(type, handle, false);
-					} catch (e) {
-						try {
-							this.attachEvent('on' + type, handle);
-						} catch (e) {
-							this['on' + type] = handle;
-						}
-					}
-				});
-			}
-		});
 	}
 	function log(obj) {
-		console.log(obj)
+		console.log(obj);
 	}
 	window.binding = binding;
 	window.query = query;
-	window.each = each;
 	window.ready = ready;
+	window.each = each;
 	window.log = log;
 })(window);
 (function() {
