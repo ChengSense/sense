@@ -2,10 +2,11 @@
 	var cache = {};
 	var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 	var wexpress = /\{\s*\{\w*\}\s*\}/g;
+	var variable = /\w+/g;
 	var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
 	var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
 	var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
-	var $close = /[^\}\)]*\}\s*\)/g;
+	var $close = /\s*\}\s*\)/g;
 	function define(scope) {
 		var scope = new scope();
 		init(query("body"));
@@ -28,12 +29,7 @@
 							console.log(e);
 						}
 					},
-					each : function() {
-						clearCache(node.cnode);
-						clearScache(cache);
-						eachCompiler([ node.cnode ], scope, node.rnode);
-					},
-					"@each" : function() {
+					chen : function() {
 						clearCache(node.cnode);
 						clearScache(cache);
 						eachCompiler([ node.cnode ], scope, node.rnode);
@@ -167,7 +163,7 @@
 					var TextNode = document.createTextNode("");
 					node.parentNode.replaceChild(TextNode, node);
 					cache[key].push({
-						resolver : "each",
+						resolver : "chen",
 						cnode : node.clone(true),
 						rnode : TextNode,
 						cache : []
@@ -207,11 +203,28 @@
 					var TextNode = document.createTextNode("");
 					node.parentNode.replaceChild(TextNode, node);
 					cache[key].push({
-						resolver : "@each",
+						resolver : "chen",
 						cnode : node,
 						rnode : TextNode,
 						cache : []
 					});
+				});
+				(node.nodeValue || "").replace($when, function(tag) {
+					if (!node.childList)
+						eachNode(node.parentNode);
+					var TextNode = document.createTextNode("");
+					node.parentNode.replaceChild(TextNode, node);
+					node.nodeValue.replace(variable,function(key){
+						if(!scope[key])
+						  return;
+						cache[key] = cache[key] || [];
+						cache[key].push({
+							resolver : "chen",
+							cnode : node,
+							rnode : TextNode,
+							cache : []
+						});
+					})
 				});
 				(node.nodeValue || "").replace(express, function(tag) {
 					var key = tag.replace(express, "$1");
@@ -318,7 +331,7 @@
 					}
 					if (node.nodeValue.match($when)) {
 						var expreses = node.nodeValue.replace($when, "$2");
-						if (eval(expreses)) {
+						if (codei(expreses,iscope)) {
 							node.cache = node.cache || [];
 							each(nodeList(node.childList), function(child) {
 								var newNode = this.clone(true);
