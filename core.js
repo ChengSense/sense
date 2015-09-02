@@ -1,5 +1,6 @@
 (function() {
 	var cache = {};
+	var scopes = {};
 	var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 	var wexpress = /\{\s*\{\w*\}\s*\}/g;
 	var variable = /\w+/g;
@@ -8,37 +9,38 @@
 	var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
 	var $close = /\s*\}\s*\)/g;
 	function define(scope) {
-		var scope = new scope();
+		scopes = new scope();
 		init(query("body"));
-		initCompiler(query("body"), cache, scope);
-		observe(scope, function(name, path) {
-			each(cache[path], this, function(node, i, thiz) {
-				var resolver = {
-					express : function() {
-						node.rnode.nodeValue = code(node.cnode.nodeValue, scope);
-						if (node.rnode.name == "value")
-							node.rnode.ownerElement.value = node.rnode.nodeValue;
-					},
-					attribute : function() {
-						try {
-							var newNode = document.createAttribute(code(node.cnode.name, scope));
-							node.rnode.ownerElement.setAttributeNode(newNode);
-							node.rnode.ownerElement.removeAttributeNode(node.rnode);
-							node.rnode = newNode;
-						} catch (e) {
-							console.log(e);
-						}
-					},
-					chen : function() {
-						clearCache(node.cnode);
-						clearScache(cache);
-						eachCompiler([ node.cnode ], scope, node.rnode);
-					}
-				};
-				resolver[node.resolver]();
+		initCompiler(query("body"), cache, scopes);
+		observe(scopes, function(name, path) {
+			log(cache)
+			each(cache[path], this, function(node) {
+				resolver[node.resolver](node, scopes);
 			});
 		});
 	}
+	var resolver = {
+		express : function(node, scope) {
+			node.rnode.nodeValue = code(node.cnode.nodeValue, scope);
+			if (node.rnode.name == "value")
+				node.rnode.ownerElement.value = node.rnode.nodeValue;
+		},
+		attribute : function(node, scope) {
+			try {
+				var newNode = document.createAttribute(code(node.cnode.name, scope));
+				node.rnode.ownerElement.setAttributeNode(newNode);
+				node.rnode.ownerElement.removeAttributeNode(node.rnode);
+				node.rnode = newNode;
+			} catch (e) {
+				console.log(e);
+			}
+		},
+		chen : function(node, scope) {
+			clearCache(node.cnode);
+			clearScache(cache);
+			eachCompiler([ node.cnode ], scope, node.rnode);
+		}
+	};
 	function code(_express, _scope) {
 		with (_scope) {
 			return eval("\"" + _express.replace(/\{\s*\{([^\{\}]*)\}\s*\}/g, "\"\+\($1)\+\"").replace(/[\f\n\r\v]/g, "") + "\"");
@@ -59,7 +61,7 @@
 			return;
 		(node.name || "").replace(express, function(tag) {
 			var key = tag.replace(express, "$1");
-			if (!iscope[key])
+			if (!scopes.hasOwnProperty(key))
 				return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
@@ -71,7 +73,7 @@
 		});
 		node.nodeValue.replace(express, function(tag) {
 			var key = node.nodeValue.replace(express, "$1");
-			if (!iscope[key])
+			if (!scopes.hasOwnProperty(key))
 				return;
 			cache[key] = cache[key] || [];
 			cache[key].push({
@@ -126,30 +128,16 @@
 	}
 	function init(dom) {
 		each(dom, function(node) {
-			init(nodeList(node.childNodes));
+			if (node.childNodes[0]&&node.nodeName != "SCRIPT") 
+			    init(nodeList(node.childNodes));
 			switch (node.nodeType) {
 			case 3:
-				node.nodeValue.replace($chen, function(tag) {
+				node.nodeValue.replace(/((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w*\}\s*\}|\s*\}\s*\))/g, function(tag) {
 					var nodes = node.nodeValue.split(tag);
-					var inode = document.createTextNode(nodes[0], node);
-					(node.parentNode).insertBefore(inode, node);
-					inode.nodeValue.replace(wexpress, function(tag) {
-						var nodes = inode.nodeValue.split(tag);
-						(inode.parentNode).insertBefore(document.createTextNode(nodes[0]), inode);
-						(inode.parentNode).insertBefore(document.createTextNode(tag), inode);
-						inode.nodeValue = inode.nodeValue.replace(nodes[0], "").replace(tag, "");
-					});
+					(node.parentNode).insertBefore(document.createTextNode(nodes[0]), node);
 					(node.parentNode).insertBefore(document.createTextNode(tag), node);
 					node.nodeValue = node.nodeValue.replace(nodes[0], "").replace(tag, "");
 				});
-				if (node.parentNode && node.parentNode.nodeName != "SCRIPT") {
-					(node.nodeValue).replace($close, function(tag) {
-						var nodes = node.nodeValue.split(tag);
-						(node.parentNode).insertBefore(document.createTextNode(nodes[0]), node);
-						(node.parentNode).insertBefore(document.createTextNode(tag), node);
-						node.nodeValue = node.nodeValue.replace(nodes[0], "").replace(tag, "");
-					});
-				}
 			}
 		});
 	}
@@ -251,7 +239,8 @@
 					node.variable = expreses.shift(), node.dataSource = expreses.pop();
 					node.cache = node.cache || [];
 					each(codei(node.dataSource, iscope), function(item, index) {
-						iscope[node.variable] = item, iscope["index"] = index;
+						var scope = Object.create(iscope || {});
+						scope[node.variable] = item, scope["index"] = index;
 						var newNode = node.clone(true);
 						newNode.removeAttribute("each");
 						node.cache.push(newNode);
@@ -261,15 +250,16 @@
 								var newNode = document.createAttribute(code(node.name, scope));
 								node.ownerElement.setAttributeNode(newNode);
 								node.ownerElement.removeAttributeNode(node);
-								setCache(node, iscope, newNode);
+								setCache(node, scope, newNode);
 							});
 							node.nodeValue.replace(express, function() {
 								if (node.name == "value")
-									binding(node.ownerElement, node, iscope);
-								node.nodeValue = code(node.nodeValue, iscope);
+									binding(node.ownerElement, node, scope);
+								node.nodeValue = code(node.nodeValue, scope);
 							});
 						});
-						var scope = Object.create(iscope || {});
+						if (!newNode.childList)
+							eachNode(newNode);
 						each(nodeList(newNode.childNodes), function(child) {
 							switch (child.nodeType) {
 							case 1:
@@ -277,15 +267,12 @@
 								break;
 							default:
 								child.nodeValue.replace($chen, function() {
-									if (!child.childList)
-										eachNode(child.parentNode);
 									eachCompiler([ child ], scope);
 								});
 								child.nodeValue.replace(express, function() {
-									setCache(child, iscope);
+									setCache(child, scope);
 									child.nodeValue = code(child.nodeValue, scope);
 								});
-								break;
 							}
 						});
 					});
@@ -301,8 +288,8 @@
 						node.variable = expreses.shift(), node.dataSource = expreses.pop();
 						node.cache = node.cache || [];
 						each(codei(node.dataSource, iscope), function(item, index) {
-							iscope[node.variable] = item, iscope["index"] = index;
 							var scope = Object.create(iscope || {});
+							scope[node.variable] = item, scope["index"] = index;
 							each(nodeList(node.childList), function(child) {
 								var newNode = this.clone(true);
 								node.cache.push(newNode);
@@ -318,10 +305,9 @@
 										eachCompiler([ newNode ], scope);
 									});
 									newNode.nodeValue.replace(express, function() {
-										setCache(newNode, iscope);
+										setCache(newNode, scope);
 										newNode.nodeValue = code(newNode.nodeValue, scope);
 									});
-									break;
 								}
 							});
 						});
@@ -351,7 +337,6 @@
 										setCache(newNode, iscope);
 										newNode.nodeValue = code(newNode.nodeValue, iscope);
 									});
-									break;
 								}
 							});
 						}
@@ -374,6 +359,8 @@
 							node.nodeValue = code(node.nodeValue, iscope);
 						});
 					});
+				    if (!node.childList)
+					    eachNode(node);
 					each(nodeList(node.childNodes), function(child) {
 						switch (child.nodeType) {
 						case 1:
@@ -381,15 +368,12 @@
 							break;
 						default:
 							child.nodeValue.replace($chen, function() {
-								if (!child.childList)
-									eachNode(child.parentNode);
 								eachCompiler([ child ], iscope);
 							});
 							child.nodeValue.replace(express, function() {
 								setCache(child, iscope);
 								child.nodeValue = code(child.nodeValue, iscope);
 							});
-							break;
 						}
 					});
 				}
