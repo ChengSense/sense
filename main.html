@@ -8,7 +8,6 @@
 		var cache = {};
 		var scopes = {};
 		var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
-		var wexpress = /\{\s*\{\w*\}\s*\}/g;
 		var variable = /\w+/g;
 		var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
 		var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
@@ -239,19 +238,20 @@
 			each(node, function(node) {
 				if (!content && !node.parentNode)
 					return;
+				var insertion = (content || node);
 				switch (node.nodeType) {
 				case 1:
 					if (node.hasAttribute("each")) {
 						var expreses = node.getAttribute("each").split(":");
 						node.variable = expreses.shift(), node.dataSource = expreses.pop();
 						node.cache = node.cache || [];
+						var scope = Object.create(iscope || {});
 						each(codei(node.dataSource, iscope), function(item, index) {
-							var scope = Object.create(iscope || {});
 							scope[node.variable] = item, scope["index"] = index;
 							var newNode = node.clone(true);
 							newNode.removeAttribute("each");
 							node.cache.push(newNode);
-							(content || node).parentNode.insertBefore(newNode, content || node);
+							insertion.parentNode.insertBefore(newNode, insertion);
 							each(nodeList(newNode.attributes), function(node) {
 								node.name.replace(express, function(tag) {
 									var newNode = document.createAttribute(code(node.name, scope));
@@ -293,13 +293,14 @@
 							var expreses = node.nodeValue.replace($each, "$2").split(":");
 							node.variable = expreses.shift(), node.dataSource = expreses.pop();
 							node.cache = node.cache || [];
+							var childList = nodeList(node.childList);
+							var scope = Object.create(iscope || {});
 							each(codei(node.dataSource, iscope), function(item, index) {
-								var scope = Object.create(iscope || {});
 								scope[node.variable] = item, scope["index"] = index;
-								each(nodeList(node.childList), function(child) {
+								each(childList, function(child) {
 									var newNode = this.clone(true);
 									node.cache.push(newNode);
-									(content || node).parentNode.insertBefore(newNode, content || node);
+									insertion.parentNode.insertBefore(newNode, insertion);
 									switch (child.nodeType) {
 									case 1:
 										eachCompiler([ newNode ], scope);
@@ -328,7 +329,7 @@
 								each(nodeList(node.childList), function(child) {
 									var newNode = this.clone(true);
 									node.cache.push(newNode);
-									(content || node).parentNode.insertBefore(newNode, content || node);
+									insertion.parentNode.insertBefore(newNode, insertion);
 									switch (child.nodeType) {
 									case 1:
 										eachCompiler([ newNode ], iscope);
@@ -408,9 +409,9 @@
 					init();
 				}
 			};
-			init();
 			document.addEventListener("DOMContentLoaded", init, false);
 			window.addEventListener("load", init, false);
+			init();
 		}
 		function setPrototype(object, config) {
 			for ( var key in config) {
