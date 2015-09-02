@@ -63,6 +63,8 @@
 				});
 			}
 			function setCache(node, iscope, rnode) {
+				if (node.name == "value")
+					binding(node.ownerElement, node, iscope);
 				if (node.nodeValue == null)
 					return;
 				(node.name || "").replace(express, function(tag) {
@@ -259,8 +261,7 @@
 										setCache(node, scope, newNode);
 									});
 									node.nodeValue.replace(express, function() {
-										if (node.name == "value")
-											binding(node.ownerElement, node, scope);
+										setCache(node, scope, newNode);
 										node.nodeValue = code(node.nodeValue, scope);
 									});
 								});
@@ -359,8 +360,6 @@
 									setCache(node, iscope, newNode);
 								});
 								node.nodeValue.replace(express, function() {
-									if (node.name == "value")
-										binding(node.ownerElement, node, iscope);
 									setCache(node, iscope);
 									node.nodeValue = code(node.nodeValue, iscope);
 								});
@@ -667,114 +666,13 @@
 			this.list2 = [ 4, 5 ];
 			this.list3 = [ 6, 7 ];
 			this.list4 = [ 8, 9 ];
-			this.columns = [  {
-				title : '编号',
-				field : 'number',
-				align : 'center',
-				width : 90
-			}, {
-				title : '生产日期',
-				align : 'center',
-				width : 235,
-				field : 'date'
-			}, {
-				title : '名称',
-				field : 'name1',
-				align : 'center'
-			}, {
-				title : '价格',
-				field : 'price'
-			}, {
-				title : '数量',
-				field : 'amount'
-			}, {
-				title : '花费',
-				field : 'cost'
-			} ];
-			this.data = [ {
-				"number" : "Inv No 1",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 1",
-				"amount" : 29,
-				"price" : 89,
-				"cost" : 2581,
-				"note" : "Note 1"
-			}, {
-				"number" : "Inv No 2",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 2",
-				"amount" : 76,
-				"price" : 21,
-				"cost" : 1596,
-				"note" : "Note 2"
-			}, {
-				"number" : "Inv No 3",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 3",
-				"amount" : 60,
-				"price" : 73,
-				"cost" : 4380,
-				"note" : "Note 3"
-			}, {
-				"number" : "Inv No 4",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 4",
-				"amount" : 49,
-				"price" : 6,
-				"cost" : 294,
-				"note" : "Note 4"
-			}, {
-				"number" : "Inv No 5",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 5",
-				"amount" : 16,
-				"price" : 38,
-				"cost" : 608,
-				"note" : "Note 5"
-			}, {
-				"number" : "Inv No 6",
-				"date" : "2013年11月9日 上午12:44:27",
-				"name1" : "Name1 6",
-				"amount" : 16,
-				"price" : 22,
-				"cost" : 352,
-				"note" : "Note 6"
-			} ]
 		});
 	});
 	</script>
   </head>
   
   <body>
-    <div class="x-grid" style="height:300px;width: 500px;">
-		<div>
-			<table style="width: 100%;">
-				<tr>
-				<!@each(item:columns,{>
-					<td id="{{index}}" style="width: {{item.width||100}}px;">
-					  {{item.title}}
-					</td>
-				<!})>
-				</tr>
-			</table>
-		</div>
-		<div>
-		   <table style="width: 100%;">
-			   <tbody>
-			        <!@each(item:data,{>
-						<tr id="{{index}}">
-				        <!@each(col:columns,{>
-							<td id="{{index}}" style="width: {{col.width||100}}px;">
-							  {{item[col.field]}}
-							</td>
-				        <!})>
-						</tr>
-			        <!})>
-			   </tbody>
-			</table>
-		</div>
-	</div>
-    @each(item1:list1,{
+	@each(item1:list1,{
 		<div id="{{id}}" each="item1:list1">
 			@each(item2:list2,{
 			    {{item2}}. {{name}} : {{age}}
@@ -787,7 +685,8 @@
 					    {{item4}}. {{name}} : {{age}}
 					})
 	               </div>
-	               <input model="name" value="{{name}}"> 
+	               <input value="{{name}}"> 
+	               <input value="{{age}}"> 
 				   {{age}}
 				})
 			})
