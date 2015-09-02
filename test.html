@@ -19,7 +19,6 @@
 			init(query("body"));
 			initCompiler(query("body"), cache, scopes);
 			observe(scopes, function(name, path) {
-				log(cache)
 				each(cache[path], this, function(node) {
 					resolver[node.resolver](node, scopes);
 				});
@@ -67,9 +66,9 @@
 				binding(node.ownerElement, node, iscope);
 			if (node.nodeValue == null)
 				return;
-			(node.name || "").replace(express, function(tag) {
-				var key = tag.replace(express, "$1");
-				if (!scopes.hasOwnProperty(key))
+			(node.name || "").replace(express, function(key) {
+				key = key.replace(express, "$1");
+				if(!codei(key,iscope))
 					return;
 				cache[key] = cache[key] || [];
 				cache[key].push({
@@ -79,9 +78,9 @@
 					scache : true
 				});
 			});
-			node.nodeValue.replace(express, function(tag) {
-				var key = node.nodeValue.replace(express, "$1");
-				if (!scopes.hasOwnProperty(key))
+			node.nodeValue.replace(express, function(key) {
+				key = key.replace(express, "$1");
+				if(!codei(key,iscope))
 					return;
 				cache[key] = cache[key] || [];
 				cache[key].push({
@@ -386,13 +385,14 @@
 			});
 		}
 		window.define = define;
+		window.codei = codei;
 	})(window);
 	(function() {
 		function binding(elem, node, scope) {
 			var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
 			elem.model = node.nodeValue.replace(express, "$1");
 			elem.on("change", function handle() {
-				scope[elem.model] = elem.value;
+				codei(elem.model +"='"+elem.value.replace(/(\'|\")/g,"\\$1")+"'",scope);
 			});
 		}
 		function ready(func) {
@@ -655,7 +655,7 @@
 		};
 		window.observe = observe;
 	})(window);
-	</script>
+    </script>
     <script type="text/javascript">
 	ready(function(){
 		define(function() {
