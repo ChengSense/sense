@@ -57,6 +57,8 @@
 		});
 	}
 	function setCache(node, iscope, rnode) {
+		if (node.name == "value")
+			binding(node.ownerElement, node, iscope);
 		if (node.nodeValue == null)
 			return;
 		(node.name || "").replace(express, function(tag) {
@@ -253,8 +255,7 @@
 								setCache(node, scope, newNode);
 							});
 							node.nodeValue.replace(express, function() {
-								if (node.name == "value")
-									binding(node.ownerElement, node, scope);
+								setCache(node, scope, newNode);
 								node.nodeValue = code(node.nodeValue, scope);
 							});
 						});
@@ -353,8 +354,6 @@
 							setCache(node, iscope, newNode);
 						});
 						node.nodeValue.replace(express, function() {
-							if (node.name == "value")
-								binding(node.ownerElement, node, iscope);
 							setCache(node, iscope);
 							node.nodeValue = code(node.nodeValue, iscope);
 						});
