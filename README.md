@@ -1,6 +1,6 @@
 # sense web mvvm framework
 
-版本：1.2.0
+版本：1.3.0
  
 特点：   
 
@@ -129,6 +129,8 @@
 
 日志：
 
+    1.3.0: 性能改进10000条 div 生成性能接近jQuery ；jQuery 6.13s ，sense 6.71s 
+    
     1.2.0：添加新的指令解析方式，由于 table > tbody > tr > td 无法写文本，导致他们之间的 @each 指令没法正确解析 
     修正为
            <!@each( 变量：数组||对象 ,{> 
