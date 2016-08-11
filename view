@@ -11,8 +11,10 @@
             var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
             var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
             var $else = /(@else)/g;
-            var $chen = /(@each|@when|@else)\s*\((.*)\s*,\s*\{/g;
-            var $close = /\s*\}\s*\)/g;
+            var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
+            var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
+            var $close = /\}\s*\)/g;
+            var $break = /\}\s*\)|(@else)/g;
 
             function view(elem, scope) {
                 init(elem = nodeList(query(elem)));
@@ -54,22 +56,58 @@
                         case 3:
                             node.nodeValue.replace(/((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w*\}\s*\}|\s*\}\s*\)|@else)/g, function(tag) {
                                 var nodes = node.nodeValue.split(tag);
-                                (node.parentNode).insertBefore(document.createTextNode(nodes[0]), node);
-                                (node.parentNode).insertBefore(document.createTextNode(tag), node);
+                                node.parentNode.insertBefore(document.createTextNode(nodes[0]), node);
+                                node.parentNode.insertBefore(document.createTextNode(tag), node);
                                 node.nodeValue = node.nodeValue.replace(nodes[0], "").replace(tag, "");
                             });
                     }
                 });
             }
 
+            function removeClose(childNodes) {
+                each(childNodes, function(child, index, childNodes) {
+                    if ($chen.test(child.nodeValue))
+                        removeClose(childNodes);
+                    if ($close.test(child.nodeValue))
+                        return true;
+                    childNodes.shift();
+                    child.$remove = true;
+                });
+            }
+
+            function removeBreak(childNodes) {
+                each(childNodes, function(child, index, childNodes) {
+                    if ($chen.test(child.nodeValue))
+                        removeClose(childNodes);
+                    if ($break.test(child.nodeValue))
+                        return true;
+                    childNodes.shift();
+                    child.$remove = true;
+                });
+            }
+
+            function commom(node, scope) {
+                each(node.attributes, function(child) {
+                    child.name.replace(express, function(tag) {
+                        var node = document.createAttribute(code(child.name, iscope));
+                        child.ownerElement.setAttributeNode(node);
+                        child.ownerElement.removeAttributeNode(child);
+                    });
+                    child.nodeValue.replace(express, function() {
+                        child.nodeValue = code(child.nodeValue, scope);
+                    });
+                });
+
+                if (node.nodeValue)
+                    node.nodeValue.replace(express, function() {
+                        node.nodeValue = code(node.nodeValue, scope);
+                    });
+            }
+
             function compiler(node, iscope, content) {
                 each(node, function(node, index, childNodes) {
-                    if ((!content && !node.parentNode) || $close.test(node.nodeValue)) {
-                        if (node.parentNode)
-                            node.parentNode.removeChild(node);
+                    if (node.nodeValue && node.nodeValue.match($close))
                         return true;
-                    }
-                    var insertion = (content || node);
                     switch (node.nodeType) {
                         case 1:
                             if (node.hasAttribute("each")) {
@@ -80,259 +118,136 @@
                                     scope[node.variable] = item, scope["index"] = index;
                                     var newNode = node.cloneNode(true);
                                     newNode.removeAttribute("each");
-                                    insertion.parentNode.insertBefore(newNode, insertion);
-                                    each(nodeList(newNode.attributes), function(node) {
-                                        node.name.replace(express, function(tag) {
-                                            var newNode = document.createAttribute(code(node.name, scope));
-                                            node.ownerElement.setAttributeNode(newNode);
-                                            node.ownerElement.removeAttributeNode(node);
-                                        });
-                                        node.nodeValue.replace(express, function() {
-                                            node.nodeValue = code(node.nodeValue, scope);
+                                    node.parentNode.insertBefore(newNode, node);
+                                    compiler([newNode], scope);
+                                });
+                                node.parentNode.removeChild(node);
+                                break;
+                            }
+                            compiler(nodeList(node.childNodes), iscope);
+                            each(node.childNodes, function(child) {
+                                if (child.nodeValue && child.nodeValue.match($lang) || child.$remove)
+                                    child.parentNode.removeChild(child);
+                            });
+                        default:
+                            if ($each.test(node.nodeValue)) {
+                                var childNode = [];
+                                childNodes.shift();
+                                var expreses = node.nodeValue.replace($each, "$2").split(":");
+                                node.variable = expreses.shift().trim(), node.dataSource = expreses.pop().trim();
+                                var scope = Object.create(iscope || {});
+                                var dataSource = codei(node.dataSource, iscope) || [];
+                                if (dataSource.length) {
+                                    each(dataSource, nodeList(childNodes), function(item, index, children) {
+                                        scope[node.variable] = item, scope["index"] = index;
+                                        var childNodes = nodeList(children);
+                                        each(childNodes, function(child, index, childNodes) {
+                                            if (child.nodeValue && child.nodeValue.match($close))
+                                                return true;
+                                            var newNode = this.cloneNode(true);
+                                            node.parentNode.insertBefore(newNode, node);
+                                            child.$remove = true;
+                                            switch (child.nodeType) {
+                                                case 1:
+                                                    compiler([newNode], scope);
+                                                    childNodes.shift();
+                                                    break;
+                                                default:
+                                                    newNode.nodeValue.replace($chen, function() {
+                                                        childNodes.replace(child, newNode);
+                                                        newNode.$child = true;
+                                                        compiler(childNodes, scope);
+                                                    });
+                                                    commom(newNode, scope);
+                                                    childNodes.shift();
+                                                    childNode = childNodes;
+                                            }
                                         });
                                     });
-                                    each(nodeList(newNode.childNodes), function(child, index, childNodes) {
-                                        if ($close.test(child.nodeValue)) {
-                                            if (child.parentNode)
-                                                child.parentNode.removeChild(child);
+                                    childNodes.removes(childNode);
+                                    if (node.$child)
+                                        return true;
+                                }
+                                removeClose(childNodes);
+                            } else if ($when.test(node.nodeValue)) {
+                                childNodes.shift();
+                                var when = codei(node.nodeValue.replace($when, "$2"), iscope)
+                                if (when) {
+                                    each(childNodes, function(child, index, childNodes) {
+                                        if (child.nodeValue && child.nodeValue.match($break))
                                             return true;
-                                        }
+                                        var newNode = this.cloneNode(true);
+                                        node.parentNode.insertBefore(newNode, node);
+                                        child.$remove = true;
                                         switch (child.nodeType) {
                                             case 1:
-                                                compiler(childNodes, scope);
+                                                compiler([newNode], iscope);
+                                                childNodes.shift();
                                                 break;
                                             default:
-                                                child.nodeValue.replace($chen, function() {
-                                                    compiler(childNodes, scope);
-                                                });
-                                                child.nodeValue.replace(express, function() {
-                                                    child.nodeValue = code(child.nodeValue, scope);
-                                                });
-                                        }
-                                        childNodes.shift();
-                                    });
-                                });
-                                childNodes.shift();
-                                if (node.parentNode)
-                                    node.parentNode.removeChild(node);
-                                return true;
-                            }
-                        default:
-                            switch (typeof(node.nodeValue)) {
-                                case "string":
-                                    if (node.nodeValue.match($each)) {
-                                        var childrenNode = childNodes,subNode = [];
-                                        var expreses = node.nodeValue.replace($each, "$2").split(":");
-                                        node.variable = expreses.shift().trim(), node.dataSource = expreses.pop().trim();
-                                        var scope = Object.create(iscope || {});
-                                        var dataSource = codei(node.dataSource, iscope);
-                                        each(dataSource, nodeList(childNodes), function(item, index, children) {
-                                            scope[node.variable] = item, scope["index"] = index;
-                                            var childNodes = nodeList(children);
-                                            childNodes.shift();
-                                            each(childNodes, function(child, index, childNodes) {
-                                                if ($close.test(child.nodeValue)) {
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                var newNode = this.cloneNode(true);
-                                                insertion.parentNode.insertBefore(newNode, insertion);
-                                                switch (child.nodeType) {
-                                                    case 1:
-                                                        compiler([newNode], scope);
-                                                        break;
-                                                    default:
-                                                        childNodes.replace(this, newNode);
-                                                        newNode.nodeValue.replace($chen, function() {
-                                                            compiler(childNodes, scope);
-                                                        });
-                                                        newNode.nodeValue.replace(express, function() {
-                                                            newNode.nodeValue = code(newNode.nodeValue, scope);
-                                                        });
-                                                }
-                                                childNodes.shift();
-                                                if (child.parentNode)
-                                                    child.parentNode.removeChild(child);
-                                            });
-                                            subNode = childNodes
-                                        });
-                                        if (dataSource.length == 0) {
-                                            each(childNodes, function(child, index, childNodes) {
-                                                if ($close.test(child.nodeValue)) {
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                childNodes.shift();
-                                                if (child.parentNode)
-                                                    child.parentNode.removeChild(child);
-                                            });
-                                            return true;
-                                        }
-                                        childrenNode.removes(subNode);
-                                        if (node.parentNode)
-                                            node.parentNode.removeChild(node);
-                                        return true;
-                                    }
-                                    if (node.nodeValue.match($when)) {
-                                        childNodes.shift();
-                                        var when = codei(node.nodeValue.replace($when, "$2"), iscope);
-                                        if (when)
-                                            each(childNodes, function(child, index, childNodes) {
-                                                if ($else.test(child.nodeValue)) {
-                                                    each(childNodes, function(child, index, childNodes) {
-                                                        if ($close.test(child.nodeValue)) {
-                                                            if (child.parentNode)
-                                                                child.parentNode.removeChild(child);
-                                                            return true;
-                                                        }
-                                                        childNodes.shift();
-                                                        if (child.parentNode)
-                                                            child.parentNode.removeChild(child);
-                                                    });
-                                                    childNodes.shift();
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                if ($close.test(child.nodeValue)) {
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                var newNode = this.cloneNode(true);
-                                                insertion.parentNode.insertBefore(newNode, insertion);
-                                                switch (child.nodeType) {
-                                                    case 1:
-                                                        compiler([newNode], iscope);
-                                                        break;
-                                                    default:
-                                                        newNode.nodeValue.replace($chen, function() {
-                                                            compiler(childNodes, iscope);
-                                                        });
-                                                        newNode.nodeValue.replace(express, function() {
-                                                            newNode.nodeValue = code(newNode.nodeValue, iscope);
-                                                        });
-                                                }
-                                                childNodes.shift();
-                                                if (child.parentNode)
-                                                    child.parentNode.removeChild(child);
-                                            });
-                                        else
-                                            each(childNodes, function(child, index, childNodes) {
-                                                if ($else.test(child.nodeValue)) {
-                                                    childNodes.shift();
-                                                    each(childNodes, function(child, index, childNodes) {
-                                                        if ($close.test(child.nodeValue)) {
-                                                            if (child.parentNode)
-                                                                child.parentNode.removeChild(child);
-                                                            return true;
-                                                        }
-                                                        var newNode = this.cloneNode(true);
-                                                        insertion.parentNode.insertBefore(newNode, insertion);
-                                                        switch (child.nodeType) {
-                                                            case 1:
-                                                                compiler([newNode], iscope);
-                                                                break;
-                                                            default:
-                                                                newNode.nodeValue.replace($chen, function() {
-                                                                    compiler(childNodes, iscope);
-                                                                });
-                                                                newNode.nodeValue.replace(express, function() {
-                                                                    newNode.nodeValue = code(newNode.nodeValue, iscope);
-                                                                });
-                                                        }
-                                                        childNodes.shift();
-                                                        if (child.parentNode)
-                                                            child.parentNode.removeChild(child);
-                                                    });
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                if ($close.test(child.nodeValue)) {
-                                                    if (child.parentNode)
-                                                        child.parentNode.removeChild(child);
-                                                    return true;
-                                                }
-                                                childNodes.shift();
-                                                if (child.parentNode)
-                                                    child.parentNode.removeChild(child);
-                                            });
-                                        if (node.parentNode)
-                                            node.parentNode.removeChild(node);
-                                        return true;
-                                    }
-                                default:
-                                    each(nodeList(node.attributes), function(node) {
-                                        node.name.replace(express, function(tag) {
-                                            var newNode = document.createAttribute(code(node.name, iscope));
-                                            node.ownerElement.setAttributeNode(newNode);
-                                            node.ownerElement.removeAttributeNode(node);
-                                        });
-                                        node.nodeValue.replace(express, function() {
-                                            node.nodeValue = code(node.nodeValue, iscope);
-                                        });
-                                    });
-                                    each(nodeList(node.childNodes), function(child, index, childNodes) {
-                                        if ($close.test(child.nodeValue)) {
-                                            if (child.parentNode)
-                                                child.parentNode.removeChild(child);
-                                            return true;
-                                        }
-                                        switch (child.nodeType) {
-                                            case 1:
-                                                compiler(childNodes, iscope);
-                                                return;
-                                            default:
-                                                child.nodeValue.replace($chen, function() {
+                                                newNode.nodeValue.replace($chen, function() {
+                                                    childNodes.replace(child, newNode);
+                                                    newNode.$child = true;
                                                     compiler(childNodes, iscope);
                                                 });
-                                                child.nodeValue.replace(express, function() {
-                                                    child.nodeValue = code(child.nodeValue, iscope);
-                                                });
+                                                commom(newNode, iscope);
+                                                childNodes.shift();
                                         }
-                                        childNodes.shift();
-                                        if (child.nodeValue)
-                                            child.nodeValue.replace(express, function() {
-                                                child.nodeValue = code(child.nodeValue, iscope);
-                                            });
                                     });
-                                    childNodes.shift();
-                                    if (node.nodeValue)
-                                        node.nodeValue.replace(express, function() {
-                                            node.nodeValue = code(node.nodeValue, iscope);
-                                        });
+                                    removeClose(childNodes);
+                                } else {
+                                    removeBreak(childNodes);
+                                    each(childNodes, function(child, index, childNodes) {
+                                        if (child.nodeValue && child.nodeValue.match($close))
+                                            return true;
+                                        var newNode = this.cloneNode(true);
+                                        node.parentNode.insertBefore(newNode, node);
+                                        child.$remove = true;
+                                        switch (child.nodeType) {
+                                            case 1:
+                                                compiler([newNode], iscope);
+                                                childNodes.shift();
+                                                break;
+                                            default:
+                                                newNode.nodeValue.replace($chen, function() {
+                                                    childNodes.replace(child, newNode);
+                                                    newNode.$child = true;
+                                                    compiler(childNodes, iscope);
+                                                });
+                                                commom(newNode, iscope);
+                                                childNodes.shift();
+                                        }
+                                    });
+                                }
+                                if (node.$child)
+                                    return true;
                             }
+                            commom(node, iscope);
+                            childNodes.shift();
                     }
                 });
             }
 
             function each(obj, arg, fu) {
-                var args = arguments,
-                    func = (args[2] || args[1]),
-                    argu = (2 < args.length ? arg : obj);
-                if (1 > args.length || obj == null || typeof obj != "object" || typeof func != "function") {
+                var func = (arguments[2] || arguments[1]),
+                    argu = (2 < arguments.length ? arg : obj);
+                if (typeof obj != "object" || typeof func != "function") {
                     return;
                 }
-                if (obj.length != undefined) {
+                if (obj.length) {
                     var length = obj.length;
                     for (var i = 0; i < length; i++) {
                         if (obj.length != length)
                             (i--, length = obj.length);
-                        if (obj.hasOwnProperty(i)) {
+                        if (obj.hasOwnProperty(i))
                             if (func.call(obj[i], obj[i], i, argu))
                                 break;
-                        }
                     }
                 } else {
-                    for (var i in obj) {
-                        if (obj.hasOwnProperty(i)) {
+                    for (var i in obj)
+                        if (obj.hasOwnProperty(i))
                             if (func.call(obj[i], obj[i], i, argu))
                                 break;
-                        }
-                    }
                 }
                 return argu;
             }
@@ -382,27 +297,20 @@
 </head>
 
 <body>
-    @each(item1:list1,{
-    <div id="{{id}}" each="item1:list1">
-        @each(item2:list2,{
-          {{item2}}. {{name}} : {{age}}
-          @each(item3:list3,{
-            @when(false,{
-              {{item2}}
-              @else
-              11111111111 
-            })
-            <div id="{{index}}">
-                @each(item4:list4,{
-                  {{item4}}. {{name}} : {{age}}
-                })
-            </div>
-            <input value="{{name}}">
-            <input value="{{age}}"> {{age}}
-         })
-      })
-    </div>
+    @each(item3:list3,{
+       @when(false,{
+         1111111111111
+         <div>1111111111111</div>
+         @else
+         4444444444444
+         <div>4444444444444</div>
+       })
     })
+    @each(item3:list3,{
+      {{name}}
+      <input value="{{name}}">
+    })
+    <div>{{age}}</div>
 </body>
 
 </html>
@@ -414,6 +322,6 @@
         list1: [1, 2],
         list2: [4, 5],
         list3: [6, 7],
-        list4: [8, 9]
+        list4: [8, 7],
     });
 </script>
