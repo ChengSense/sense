@@ -285,9 +285,9 @@
             function query(express) {
                 try {
                     var doc = document.querySelectorAll(express);
-                    if(doc[0]) return doc;
-                    newNode.innerHTML = express;
-                    return newNode.childNodes;
+                    if(!doc[0])
+                       throw new Error();
+                    return doc;
                 } catch (e) {
                     var newNode = document.createElement("div");
                     newNode.innerHTML = express;
