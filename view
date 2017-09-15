@@ -110,7 +110,7 @@
 
             function compiler(node, iscope, content) {
                 each(node, function(node, index, childNodes) {
-                    if (node.nodeValue && node.nodeValue.match($close))
+                    if (node.nodeValue && node.nodeValue.match($close)||node.nodeName == "SCRIPT")
                         return true;
                     switch (node.nodeType) {
                         case 1:
