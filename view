@@ -235,7 +235,7 @@
             }
 
             function each(obj, arg, fu) {
-                if(obj != null)
+                if(obj == null)
                     return argu;
                 var func = (arguments[2] || arguments[1]),
                     argu = (2 < arguments.length ? arg : obj);
