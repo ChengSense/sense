@@ -100,7 +100,11 @@
 
                 if (node.nodeValue)
                     node.nodeValue.replace(express, function() {
-                        node.nodeValue = code(node.nodeValue, scope);
+                        var newNodes = query(code(node.nodeValue, scope));
+                        each(newNodes, function(child) {
+                            node.parentNode.insertBefore(child, node);
+                        });
+                        node.parentNode.removeChild(node);
                     });
             }
 
