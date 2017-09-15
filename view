@@ -115,7 +115,9 @@
                                 node.variable = expreses.shift().trim(), node.dataSource = expreses.pop().trim();
                                 var scope = Object.create(iscope || {});
                                 each(codei(node.dataSource, iscope), function(item, index) {
-                                    scope[node.variable] = item, scope["index"] = index;
+                                    scope[node.variable] = item;
+                                    if(expreses[0])
+                                      scope[expreses[0].trim()] = index;
                                     var newNode = node.cloneNode(true);
                                     newNode.removeAttribute("each");
                                     node.parentNode.insertBefore(newNode, node);
@@ -137,37 +139,37 @@
                                 node.variable = expreses.shift().trim(), node.dataSource = expreses.pop().trim();
                                 var scope = Object.create(iscope || {});
                                 var dataSource = codei(node.dataSource, iscope) || [];
-                                if (dataSource.length) {
-                                    each(dataSource, nodeList(childNodes), function(item, index, children) {
-                                        scope[node.variable] = item, scope["index"] = index;
-                                        var childNodes = nodeList(children);
-                                        each(childNodes, function(child, index, childNodes) {
-                                            if (child.nodeValue && child.nodeValue.match($close))
-                                                return true;
-                                            var newNode = this.cloneNode(true);
-                                            node.parentNode.insertBefore(newNode, node);
-                                            child.$remove = true;
-                                            switch (child.nodeType) {
-                                                case 1:
-                                                    compiler([newNode], scope);
-                                                    childNodes.shift();
-                                                    break;
-                                                default:
-                                                    newNode.nodeValue.replace($chen, function() {
-                                                        childNodes.replace(child, newNode);
-                                                        newNode.$child = true;
-                                                        compiler(childNodes, scope);
-                                                    });
-                                                    commom(newNode, scope);
-                                                    childNodes.shift();
-                                                    childNode = childNodes;
-                                            }
-                                        });
+                                each(dataSource, nodeList(childNodes), function(item, index, children) {
+                                    scope[node.variable] = item;
+                                    if(expreses[0])
+                                      scope[expreses[0].trim()] = index;
+                                    var childNodes = nodeList(children);
+                                    each(childNodes, function(child, index, childNodes) {
+                                        if (child.nodeValue && child.nodeValue.match($close))
+                                            return true;
+                                        var newNode = this.cloneNode(true);
+                                        node.parentNode.insertBefore(newNode, node);
+                                        child.$remove = true;
+                                        switch (child.nodeType) {
+                                            case 1:
+                                                compiler([newNode], scope);
+                                                childNodes.shift();
+                                                break;
+                                            default:
+                                                newNode.nodeValue.replace($chen, function() {
+                                                    childNodes.replace(child, newNode);
+                                                    newNode.$child = true;
+                                                    compiler(childNodes, scope);
+                                                });
+                                                commom(newNode, scope);
+                                                childNodes.shift();
+                                                childNode = childNodes;
+                                        }
                                     });
-                                    childNodes.removes(childNode);
-                                    if (node.$child)
-                                        return true;
-                                }
+                                });
+                                childNodes.removes(childNode);
+                                if (node.$child)
+                                    return true;
                                 removeClose(childNodes);
                             } else if ($when.test(node.nodeValue)) {
                                 childNodes.shift();
@@ -234,20 +236,22 @@
                 if (typeof obj != "object" || typeof func != "function") {
                     return;
                 }
-                if (obj.length) {
-                    var length = obj.length;
-                    for (var i = 0; i < length; i++) {
-                        if (obj.length != length)
-                            (i--, length = obj.length);
-                        if (obj.hasOwnProperty(i))
-                            if (func.call(obj[i], obj[i], i, argu))
-                                break;
+                if(obj != null){
+                    if (obj.length) {
+                        var length = obj.length;
+                        for (var i = 0; i < length; i++) {
+                            if (obj.length != length)
+                                (i--, length = obj.length);
+                            if (obj.hasOwnProperty(i))
+                                if (func.call(obj[i], obj[i], i, argu))
+                                    break;
+                        }
+                    } else {
+                        for (var i in obj)
+                            if (obj.hasOwnProperty(i))
+                                if (func.call(obj[i], obj[i], i, argu))
+                                    break;
                     }
-                } else {
-                    for (var i in obj)
-                        if (obj.hasOwnProperty(i))
-                            if (func.call(obj[i], obj[i], i, argu))
-                                break;
                 }
                 return argu;
             }
