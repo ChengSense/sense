@@ -285,14 +285,9 @@
             function query(express) {
                 try {
                     var doc = document.querySelectorAll(express);
-                    switch (typeof doc[0]) {
-                        case undefined:
-                            var newNode = document.createElement("div");
-                            newNode.innerHTML = express;
-                            return newNode.childNodes;
-                        default:
-                            return doc;
-                    }
+                    if(doc[0]) return doc;
+                    newNode.innerHTML = express;
+                    return newNode.childNodes;
                 } catch (e) {
                     var newNode = document.createElement("div");
                     newNode.innerHTML = express;
