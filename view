@@ -235,27 +235,27 @@
             }
 
             function each(obj, arg, fu) {
+                if(obj != null)
+                    return argu;
                 var func = (arguments[2] || arguments[1]),
                     argu = (2 < arguments.length ? arg : obj);
                 if (typeof obj != "object" || typeof func != "function") {
                     return;
                 }
-                if(obj != null){
-                    if (obj.length) {
-                        var length = obj.length;
-                        for (var i = 0; i < length; i++) {
-                            if (obj.length != length)
-                                (i--, length = obj.length);
-                            if (obj.hasOwnProperty(i))
-                                if (func.call(obj[i], obj[i], i, argu))
-                                    break;
-                        }
-                    } else {
-                        for (var i in obj)
-                            if (obj.hasOwnProperty(i))
-                                if (func.call(obj[i], obj[i], i, argu))
-                                    break;
+                if (obj.length) {
+                    var length = obj.length;
+                    for (var i = 0; i < length; i++) {
+                        if (obj.length != length)
+                            (i--, length = obj.length);
+                        if (obj.hasOwnProperty(i))
+                            if (func.call(obj[i], obj[i], i, argu))
+                                break;
                     }
+                } else {
+                    for (var i in obj)
+                        if (obj.hasOwnProperty(i))
+                            if (func.call(obj[i], obj[i], i, argu))
+                                break;
                 }
                 return argu;
             }
