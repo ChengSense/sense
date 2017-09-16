@@ -15,6 +15,7 @@
             var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
             var $close = /\}\s*\)/g;
             var $break = /\}\s*\)|(@else)/g;
+            var $newNode = document.createElement("div");
 
             function view(elem, scope) {
                 init(elem = nodeList(query(elem)));
@@ -100,11 +101,12 @@
 
                 if (node.nodeValue)
                     node.nodeValue.replace(express, function() {
-                        var newNodes = query(code(node.nodeValue, scope));
-                        each(newNodes, function(child) {
-                            node.parentNode.insertBefore(child, node);
-                        });
-                        node.parentNode.removeChild(node);
+                         var newNode = $newNode.cloneNode(true);
+                         newNode.innerHTML = code(node.nodeValue, scope);
+                         each(newNode.childNodes, function(child) {
+                             node.parentNode.insertBefore(child, node);
+                         });
+                         node.parentNode.removeChild(node);
                     });
             }
 
