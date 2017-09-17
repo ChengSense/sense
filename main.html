@@ -640,14 +640,13 @@
 			};
 			var _watch = function(target, prop, object, path) {
 				var value = target[prop];
-				path = path.join(".");
 				Object.defineProperty(target, prop, {
 					get : function() {
 						return object[prop];
 					},
 					set : function(value) {
-						object[prop] = _observe(value, callback, object);
-						callback.call(this, prop, path);
+						object[prop] = _observe(value, callback, object,path);
+						callback.call(this, prop, path.join("."));
 					}
 				});
 				target[prop] = value;
