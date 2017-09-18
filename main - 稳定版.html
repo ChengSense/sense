@@ -76,7 +76,8 @@
                   node.shift();
                   if ($close.test(child.nodeValue))
                       return true;
-                  list.push(item = { node : child, children :[]});
+                  var item = { node : child, children :[]};
+                  list.push(item);
                   switch (child.nodeType) {
                       case 1:
                         initCompiler(nodeList(child.childNodes),item.children);
