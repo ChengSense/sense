@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>main.html</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script type="text/javascript">
+        (function() {
+            var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
+            var variable = /\w+/g;
+            var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
+            var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
+            var $else = /(@else)/g;
+            var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
+            var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
+            var $close = /\}\s*\)/g;
+            var $break = /\}\s*\)|(@else)/g;
+            var cache = {};
+
+            function view(elem, scope) {
+                elem = query(elem);
+                cache = elem[0];
+                init(elem = nodeList(elem));
+                elem = initCompiler(elem);
+                var doc = document.createDocumentFragment();
+                compiler(doc, scope, elem[0].children);
+                cache.parentNode.replaceChild(doc,cache);
+                return elem;
+            }
+
+            function code(_express, _scope) {
+                with(_scope) {
+                    try {
+                        return eval("\"" + _express.replace(/\{\s*\{([^\{\}]*)\}\s*\}/g, "\"\+\($1)\+\"").replace(/[\f\n\r\v]/g, "") + "\"");
+                    } catch (err) {
+                        console.log(err)
+                    }
+                }
+            }
+
+            function codei(_express, _scope) {
+                with(_scope) {
+                    try {
+                        return eval(_express);
+                    } catch (err) {
+                        console.log(err)
+                    }
+                }
+            }
+
+            function nodeList(nodes) {
+                return each(nodes, [], function(node, i, list) {
+                    list.push(this);
+                });
+            }
+
+            function init(dom) {
+                each(dom, function(node) {
+                    if (node.childNodes[0] && node.nodeName != "SCRIPT")
+                        init(nodeList(node.childNodes));
+                    switch (node.nodeType) {
+                        case 3:
+                            node.nodeValue.replace(/((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w*\}\s*\}|\s*\}\s*\)|@else)/g, function(tag) {
+                                var nodes = node.nodeValue.split(tag);
+                                node.parentNode.insertBefore(document.createTextNode(nodes[0]), node);
+                                node.parentNode.insertBefore(document.createTextNode(tag), node);
+                                node.nodeValue = node.nodeValue.replace(nodes[0], "").replace(tag, "");
+                            });
+                    }
+                });
+            }
+
+            function initCompiler(node,nodes) {
+              return each(node, nodes||[], function(child, i, list) {
+                  node.shift();
+                  if ($close.test(child.nodeValue))
+                      return true;
+                  list.push(item = { node : child, children :[]});
+                  switch (child.nodeType) {
+                      case 1:
+                        initCompiler(nodeList(child.childNodes),item.children);
+                        break;
+                      default:
+                        if ($chen.test(child.nodeValue))
+                          initCompiler(node,item.children);
+                        break;
+                  };
+              });
+        		}
+
+            function commom(node, scope) {
+                each(node.attributes, function(child) {
+                    child.name.replace(express, function(tag) {
+                        var node = document.createAttribute(code(child.name, scope));
+                        node.nodeValue = child.nodeValue;
+                        child.ownerElement.setAttributeNode(node);
+                        child.ownerElement.removeAttributeNode(child);
+                        node.nodeValue.replace(express, function() {
+                          node.nodeValue = code(node.nodeValue, scope);
+                        });
+                    });
+                    child.nodeValue.replace(express, function() {
+                        child.nodeValue = code(child.nodeValue, scope);
+                    });
+                });
+
+                if (node.nodeValue)
+                    node.nodeValue.replace(express, function() {
+                        node.nodeValue = code(node.nodeValue, scope);
+                    });
+            }
+
+            function compiler(node, iscope, childNodes) {
+              	each(childNodes, function(child, index, childNodes) {
+                		switch (child.node.nodeType) {
+                		case 1:
+                  			if (child.node.hasAttribute("each")) {
+                    				var expreses = child.node.getAttribute("each").split(":");
+                    				child.node.variable = expreses.shift().trim(),child.node.dataSource = expreses.pop().trim();
+                    				var scope = Object.create(iscope || {});
+                    				each(codei(child.node.dataSource, iscope), function(item, index) {
+                      					scope[child.node.variable] = item;
+                      					if (expreses[0])
+                      						scope[expreses[0].trim()] = index;
+                      					var newNode = child.node.cloneNode();
+                      					newNode.removeAttribute("each");
+                      					node.appendChild(newNode);
+                      					compiler(newNode, scope, child.children);
+                                commom(newNode, scope);
+                    				});
+                            childNodes.shift();
+                  			} else {
+                    				var newNode = child.node.cloneNode();
+                    				node.appendChild(newNode);
+                    				compiler(newNode, iscope, child.children);
+                            commom(newNode, iscope);
+                            childNodes.shift();
+                  			}
+                  			break;
+                		default:
+                  			if ($each.test(child.node.nodeValue)) {
+                    				var childNode = [];
+                    				var expreses = child.node.nodeValue.replace($each, "$2").split(":");
+                    				child.node.variable = expreses.shift().trim(),child.node.dataSource = expreses.pop().trim();
+                    				var scope = Object.create(iscope || {});
+                    				var dataSource = codei(child.node.dataSource, iscope) || [];
+                    				each(dataSource, nodeList(child.children), function(item, index,children) {
+                      					scope[child.node.variable] = item;
+                      					if (expreses[0])
+                      						scope[expreses[0].trim()] = index;
+                      					var childNodes = nodeList(children);
+                      					compiler(node, scope, childNodes);
+                    				});
+                            childNodes.shift();
+                        } else if ($when.test(child.node.nodeValue)) {
+                            var when = codei(child.node.nodeValue.replace($when, "$2"), iscope)
+                            if (when) {
+                                each(child.children, function(child, index, childNodes) {
+                                    if (child.nodeValue && child.nodeValue.match($break))
+                                        return true;
+                                    if(!$chen.test(child.node.nodeValue)){
+                                        var newNode = child.node.cloneNode();
+                                        node.appendChild(newNode);
+                                        commom(newNode, iscope);
+                                        compiler(newNode, iscope, child.children);
+                                    }else{
+                                        compiler(node, iscope, child.children);
+                                    }
+                                });
+                            }else{
+                                each(nodeList(child.children), function(child, index, childNodes) {
+                                    childNodes.shift();
+                                    if ($else.test(child.node.nodeValue)){
+                                        each(childNodes, function(child, index, childNodes) {
+                                            switch (child.node.nodeType) {
+                                              case 1:
+                                                if (child.node.hasAttribute("each"))
+                                                    compiler(node, iscope, childNodes);
+                                                break;
+                                                default:
+                                                    if(!$chen.test(child.node.nodeValue)){
+                                                      var newNode = child.node.cloneNode();
+                                                      node.appendChild(newNode);
+                                                      commom(newNode, iscope);
+                                                      compiler(newNode, iscope, child.children);
+                                                      childNodes.shift();
+                                                    }else{
+                                                      compiler(node, iscope, childNodes);
+                                                      childNodes.shift();
+                                                    }
+                                                break;
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                  			} else {
+                    				var newNode = child.node.cloneNode();
+                    				node.appendChild(newNode);
+                            commom(newNode, iscope);
+                  			}
+                  			break;
+                		}
+              	});
+            }
+
+            function each(obj, arg, fu) {
+                if(obj == null)
+                    return argu;
+                var func = (arguments[2] || arguments[1]),
+                    argu = (2 < arguments.length ? arg : obj);
+                if (typeof obj != "object" || typeof func != "function") {
+                    return;
+                }
+                if (obj.length) {
+                    var length = obj.length;
+                    for (var i = 0; i < length; i++) {
+                        if (obj.length != length)
+                            (i--, length = obj.length);
+                        if (obj.hasOwnProperty(i))
+                            if (func.call(obj[i], obj[i], i, argu))
+                                break;
+                    }
+                } else {
+                    for (var i in obj)
+                        if (obj.hasOwnProperty(i))
+                            if (func.call(obj[i], obj[i], i, argu))
+                                break;
+                }
+                return argu;
+            }
+            Array.prototype.remove = function(n) {
+                var index = this.indexOf(n);
+                if (index > -1)
+                    this.splice(index, 1);
+            };
+            Array.prototype.removes = function(n) {
+                var length = this.length;
+                for (var i = 0; i < length; i++) {
+                    if (this.length != length)
+                        (i--, length = this.length);
+                    var index = n.indexOf(this[i]);
+                    if (index < 0)
+                        this.splice(i, 1);
+                }
+            };
+            Array.prototype.replace = function(o, n) {
+                var index = this.indexOf(o);
+                if (index > -1)
+                    this.splice(index, 1, n);
+            };
+            window.view = view;
+        })(window);
+        (function() {
+            function query(express) {
+                try {
+                    var doc = document.querySelectorAll(express);
+                    if(!doc[0])
+                       throw new Error();
+                    return doc;
+                } catch (e) {
+                    var newNode = document.createElement("div");
+                    newNode.innerHTML = express;
+                    return newNode.childNodes;
+                }
+            }
+            window.query = query;
+        })(window);
+        (function() {
+      		var observe = function(target, callSet, callGet) {
+      			var object = {};
+      			var _observe = function(target, callSet, callGet, object, root) {
+      				if (typeof target == "object") {
+      					for ( var prop in target) {
+      						var path = Object.create(root || []);
+      						if (target.hasOwnProperty(prop)) {
+      							if (!Object.getOwnPropertyDescriptor(target, prop).set) {
+      								path.push(prop);
+      								if (typeof target[prop] == "object") {
+      									_observe(target[prop], callSet, callGet, object[prop] = {}, path);
+      								}
+      								_watch(target, prop, object, path);
+      							}
+      						}
+      					}
+      				}
+      				return target;
+      			};
+      			var _watch = function(target, prop, object, path) {
+      				var value = target[prop];
+      				Object.defineProperty(target, prop, {
+      					get : function() {
+                  callGet.call(this, prop, path.join("."));
+      						return object[prop];
+      					},
+      					set : function(value) {
+      						object[prop] = _observe(value, callSet, callGet, object, path);
+      						callSet.call(this, prop, path.join("."));
+      					}
+      				});
+      				target[prop] = value;
+      			};
+      			return new _observe(target, callSet,callGet, object);
+      		};
+      		window.observe = observe;
+      })(window);
+    </script>
+</head>
+
+<body>
+    <view>
+      @each(item3:list3,{
+         @when(false,{
+           1111111111111
+           <div>22222222222222222</div>
+           @else
+           @each(item3:list3,{
+              @when(false,{
+                3333333333333333333
+                <div>444444444444444444</div>
+                @else
+                <div each="item3:list3">999999999999999999999999</div>
+                @each(item3:list3,{
+                   @when(false,{
+                     5555555555555555555555
+                     <div>666666666666666666666666</div>
+                     @else
+                     77777777777777777777
+                     <div>8888888888888888888888888</div>
+                   })
+                })
+              })
+           })
+         })
+      })
+      @each(item3:list3,{
+        {{name}}
+        <input value="{{name}}">
+      })
+      <div {{name}}="{{age}} age">{{age}}</div>
+    </view>
+</body>
+<script type="text/javascript">
+view("view", {
+    id: "3516",
+    name: "chengdong",
+    age: 27,
+    list1: [1, 2],
+    list2: [4, 5],
+    list3: [6, 7],
+    list4: [8, 7],
+});
+</script>
+</html>
