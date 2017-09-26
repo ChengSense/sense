@@ -558,7 +558,7 @@
 </head>
 
 <body>
-  <view>
+  <div id="app">
     <div>{{name}}</div>
     @each(item1:list1,{
       @when(name=="1",{
@@ -571,7 +571,7 @@
       })
     })
     <input type="text" value="{{name}}" {{name}}="111111111111"/>
-  </view>
+  </div>
 </body>
 
 </html>
@@ -581,5 +581,5 @@ var data = {
     list1: [1, 2],
     list2: [4, 5]
 }
-view("view", data);
+view("#app", data);
 </script>
