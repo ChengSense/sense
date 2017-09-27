@@ -15,23 +15,20 @@
         var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
         var $close = /\}\s*\)\s*/g;
         var $break = /\}\s*\)|(@else)/g;
-        var cache = [];
-        var caches;
-        var $path;
+        var cache = [], caches, $path;
         function view(elem, scope) {
             elem = nodeList(query(elem));
             caches = elem[0];
-            elem = initCompiler(inits(init(elem)));
+            elem = initCompiler(blankOut(init(elem)));
             var doc = document.createDocumentFragment();
             observe(scope, function(name, path) {
                 var nodes = cacheNode(cache[path]);
                 each(nodes, function(node) {
-                    resolver[node.resolver](node, scope, insertion(nodes));
+                    resolver[node.resolver](node, scope);
                     if (node.resolver == "chen")
-                        clearNode([node]);
+                        clearChenNode([node]);
                 });
-                clearMissNode(cache);
-                console.log(scope);
+                clearBreakNode(cache);
             },
             function(name, path) {
                 $path = path;
@@ -55,17 +52,17 @@
         }
         function insertion(nodes, iNode) {
             iNode = iNode||{};
-            each(nodes, function(node) {
-                if(node.node && node.node .parentNode)
-                    return iNode["0"] = node.node;
-                insertion(node.childNodes, iNode);
+            each(nodes, function(child) {
+                if(child.node && (child.node.parentNode||child.node.ownerElement))
+                    return iNode["0"] = child.node;
+                insertion(child.childNodes, iNode);
             });
             return iNode["0"];
         }
-        function clearNode(nodes) {
+        function clearChenNode(nodes) {
             each(nodes,function(child) {
                 if (!child.nodeType &&child.childNodes&& child.childNodes[0])
-                    clearNode(child.childNodes);
+                    clearChenNode(child.childNodes);
                 if (child.parentNode)
                     child.parentNode.removeChild(child);
                 if (child.node && child.node.parentNode)
@@ -74,11 +71,11 @@
                     cache[child.path].remove(child)
             });
         }
-        function clearMissNode(cache) {
+        function clearBreakNode(cache) {
             each(cache,function(children) {
                 if (children[0])
                    each(children, function(child,i,children) {
-                       if (child.node && !child.node.parentNode)
+                       if (child.node && !child.node.parentNode && !child.node.ownerElement)
                            children.remove(child)
                    });
             });
@@ -94,14 +91,17 @@
             attribute: function(node, scope) {
                 try {
                     var newNode = document.createAttribute(code(node.clasNode.name, scope));
+                    newNode.nodeValue = node.clasNode.nodeValue;
                     node.node.ownerElement.setAttributeNode(newNode);
                     node.node.ownerElement.removeAttributeNode(node.node);
+                    setComCache(newNode, scope, node.clasNode);
                 } catch(e) {
                     console.log(e);
                 }
             },
-            chen: function(node, scope, iNode) {
+            chen: function(node, scope) {
                 try {
+                    var iNode = insertion([node]);
                     var doc = document.createDocumentFragment();
                     compiler(doc, Object.create(scope), [node], { childNodes: [], childNode: [] });
                     iNode.parentNode.insertBefore(doc, iNode);
@@ -177,10 +177,10 @@
             });
             return dom;
         }
-        function inits(dom) {
+        function blankOut(dom) {
             each(dom, function(child) {
                 if (child.childNodes[0] && child.nodeName != "SCRIPT")
-                    inits(child.childNodes);
+                    blankOut(child.childNodes);
                 if(child.nodeValue&&child.nodeValue.trim() ==""||child.nodeValue=="")
                     child.parentNode.removeChild(child);
             });
@@ -228,7 +228,7 @@
         function setComCache(node, scope, clasNode) {
             if (node.name == "value")
       				  binding(node.ownerElement, node, scope);
-            (node.name || "").replace(express, function(key) {
+            (clasNode.name || "").replace(express, function(key) {
                 key = key.replace(express, "$1");
                 if (scope[key]==undefined||!codei(key, scope)) return;
                 cache[$path] = cache[$path] || [];
@@ -281,7 +281,7 @@
                     node.nodeValue = child.nodeValue;
                     child.ownerElement.setAttributeNode(node);
                     child.ownerElement.removeAttributeNode(child);
-                    setComCache(node, scope, child.cloneNode(true));
+                    setComCache(node, scope, child);
                     commom(node, scope);
                 });
                 commom(child, scope);
@@ -350,7 +350,7 @@
                     } else if ($when.test(child.node.nodeValue)) {
                         var clasNode = classNode(null, child);
                         content.childNodes.push(clasNode);
-                        setCache(null, iscope, content = clasNode);
+                        setCache(null, iscope, clasNode);
                         var when = codei(child.node.nodeValue.replace($when, "$2"), iscope);
                         if (when) {
                             each(nodeList(child.children), function(child, index, childNodes) {
@@ -358,7 +358,7 @@
                                     return true;
                                 switch (child.node.nodeType == 1 || $chen.test(child.node.nodeValue)) {
                                 case true:
-                                    compiler(node, iscope, childNodes, content);
+                                    compiler(node, iscope, childNodes, clasNode);
                                     break;
                                 default:
                                     var newNode = child.node.cloneNode();
@@ -376,7 +376,7 @@
                                     each(childNodes, function(child, index, childNodes) {
                                         switch ($chen.test(child.node.nodeValue) || child.node.nodeType == 1) {
                                         case true:
-                                            compiler(node, iscope, childNodes, content);
+                                            compiler(node, iscope, childNodes, clasNode);
                                             break;
                                         default:
                                             var newNode = child.node.cloneNode();
@@ -431,7 +431,6 @@
             });
         }
         window.each = each;
-        window.binding = binding;
         window.view = view;
       })(window);
       (function() {
@@ -448,9 +447,9 @@
               }
           }
           function setPrototype(object, config) {
-      			for ( var key in config) {
-      				object.prototype[key] = config[key];
-      			}
+        			for ( var key in config) {
+        				object.prototype[key] = config[key];
+        			}
       		}
           setPrototype(Array , {
               remove: function(n) {
@@ -527,8 +526,7 @@
                               if (!Object.getOwnPropertyDescriptor(target, prop).set) {
                                   path.push(prop);
                                   if (typeof target[prop] == "object") {
-                                      _observe(target[prop], callSet, callGet, object[prop] = {},
-                                      path);
+                                      _observe(target[prop], callSet, callGet, object[prop] = {}, path);
                                   }
                                   _watch(target, prop, object, path);
                               }
@@ -557,42 +555,24 @@
         })(window);
     </script>
 </head>
-<!-- 项目文档地址  https://github.com/sensese/sense -->
 <body>
-  <div id="app">
+  <view>
     <div>{{name}}</div>
-    @each(item1:list1,{
-      @when(name=="1",{
-        <div>{{name}}</div>
-        @else
-        <div each="item2:list2">
-          {{item1*item2}}
-        </div>
-      })
+    @when(name=="1",{
+      <div>年龄：{{name}}</div>
+      @else
+      <div>姓名：{{name}}</div>
     })
-    <textarea value="{{text}}">
-      {{text}}
-    </textarea>
-    <div></div>
-    <input type="text" value="{{name}}" {{name}}="111111"/>
-    <div></div>
-    <input type="text" value="{{text}}"/>
-    -------------------{{values}}---------------------
-    <select value="{{values}}">
-      <option value="{{item2}}"  each="item2:list2">{{item2}}</option>
-    </select>
-
-  </div>
+    <input type="text" value="{{name}}" {{name}}="111111111111111111"/>
+  </view>
 </body>
 
 </html>
 <script type="text/javascript">
 var data = {
     name : "chengdongliang",
-    text : "aaaaaaaaaaaaa",
-    values : "aaaaaaaaaaaaa",
     list1: [1, 2],
     list2: [4, 5]
 }
-view("#app", data);
+view("view", data);
 </script>
