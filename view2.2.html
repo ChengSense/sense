@@ -174,15 +174,13 @@
                 each(dom, function(node) {
                     if (node.childNodes[0] && node.nodeName != "SCRIPT")
                         init(nodeList(node.childNodes));
-                    switch (node.nodeType) {
-                    case 3:
+                    if(node.nodeType == 3)
                         node.nodeValue.replace($lang,function(tag) {
                             var nodes = node.nodeValue.split(tag);
                             node.parentNode.insertBefore(document.createTextNode(nodes[0]), node);
                             node.parentNode.insertBefore(document.createTextNode(tag), node);
                             node.nodeValue = node.nodeValue.replace(nodes[0], "").replace(tag, "");
                         });
-                    }
                 });
                 return dom;
             }
