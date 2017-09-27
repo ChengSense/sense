@@ -6,7 +6,7 @@
     var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
     var $else = /(@else)/g;
     var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
-    var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
+    var $lang = /((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w.*\}\s*\}|\s*\}\s*\)|@else)/g;
     var $close = /\}\s*\)\s*/g;
     var $break = /\}\s*\)|(@else)/g;
     function view(app) {
@@ -61,6 +61,8 @@
                     var node = initCompiler(blankOut(init(nodeList(apply))))[0];
                     var doc = document.createDocumentFragment();
                     compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
+                    app.view = apply[0];
+                    app.ctrl();
                     console.log(cache);
                     apply[0].innerHTML = "";
                     apply[0].appendChild(doc);
@@ -401,6 +403,7 @@
                 scope[owner._express] = owner.value;
             });
         }
+        app.modle = app.modle();
         observe(app.modle, function (name, path) {
             var nodes = cacheNode(cache[path]);
             each(nodes, function (node) {
@@ -431,7 +434,8 @@
         }
     }
     function ready(func) {
-        var done = false, init = function() {
+        var done = false;
+        var init = function() {
             if (done) {
                 document.removeEventListener("DOMContentLoaded", init, false);
                 window.removeEventListener("load", init, false);
@@ -534,6 +538,118 @@
                     });
                     return node;
             }
+        }
+    });
+    setPrototype(NodeList, {
+        on : function(type, call, bol) {
+            each(this, function(node) {
+                node.on(type, call, bol);
+            });
+        },
+        off : function(type, call, bol) {
+            each(this, function(node) {
+                node.off(type, call, bol);
+            });
+        },
+        append : function(node) {
+            switch (typeof node) {
+            case "string":
+                var newNode = document.createElement("div");
+                newNode.innerHTML = node;
+                each(newNode.childNodes, this[0], function(node, i, thiz) {
+                    thiz.appendChild(node);
+                });
+                break;
+            default:
+                switch (node.length) {
+                case undefined:
+                    this[0].appendChild(node);
+                    break;
+                default:
+                    each(node, this[0], function(node, i, thiz) {
+                        thiz.appendChild(node);
+                    });
+                    break;
+                }
+                break;
+            }
+        },
+        after : function(node) {
+            switch (typeof node) {
+            case "string":
+                var newNode = document.createElement("div");
+                newNode.innerHTML = node;
+                each(newNode.childNodes, this[0], function(node, i, thiz) {
+                    thiz.parentNode.insertBefore(this, thiz.nextSibling);
+                });
+                break;
+            default:
+                switch (node.length) {
+                case undefined:
+                    this[0].parentNode.insertBefore(node, this[0].nextSibling);
+                    break;
+                default:
+                    each(node, this[0], function(node, i, thiz) {
+                        thiz.parentNode.insertBefore(node, thiz.nextSibling);
+                    });
+                    break;
+                }
+                break;
+            }
+        },
+        before : function(node) {
+            switch (typeof node) {
+            case "string":
+                var newNode = document.createElement("div");
+                newNode.innerHTML = node;
+                each(newNode.childNodes, this[0], function(node, i, thiz) {
+                    thiz.parentNode.insertBefore(this, thiz);
+                });
+                break;
+            default:
+                switch (node.length) {
+                case undefined:
+                    this[0].parentNode.insertBefore(node, this[0]);
+                    break;
+                default:
+                    each(node, this[0], function(node, i, thiz) {
+                        thiz.parentNode.insertBefore(node, thiz);
+                    });
+                    break;
+                }
+                break;
+            }
+        },
+        replace : function(node) {
+            switch (typeof node) {
+            case "string":
+                var newNode = document.createElement("div");
+                newNode.innerHTML = node;
+                each(newNode.childNodes, this[0], function(node, i, thiz) {
+                    thiz.parentNode.replaceChild(this, thiz);
+                });
+                break;
+            default:
+                switch (node.length) {
+                case undefined:
+                    this[0].parentNode.replaceChild(node, this[0]);
+                    break;
+                default:
+                    each(node, this[0], function(node, i, thiz) {
+                        thiz.parentNode.replaceChild(node, thiz);
+                    });
+                    break;
+                }
+                break;
+            }
+        },
+        remove : function() {
+            each(this, function(node) {
+                node.parentNode.removeChild(node);
+            });
+        },
+        clone : function(bol) {
+            return this[0].cloneNode(bol || true);
         }
     });
     var observe = function (target, callSet, callGet) {
