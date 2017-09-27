@@ -234,7 +234,7 @@
             }
             function setComCache(node, scope, clasNode) {
                 if (node.name == "value")
-                    binding(node.ownerElement, node, scope);
+                    binding(node, scope);
                 (clasNode.name || "").replace(express, function(key) {
                     key = key.replace(express, "$1");
                     if (scope[key]==undefined||!codei(key, scope)) return;
