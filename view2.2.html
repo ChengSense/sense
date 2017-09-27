@@ -68,6 +68,8 @@
                        each(children, function(child,i,children) {
                            if (child.node && !child.node.parentNode && !child.node.ownerElement)
                                children.remove(child)
+                           if (child.node && child.node.ownerElement && !child.node.ownerElement.parentNode)
+                               children.remove(child)
                        });
                 });
             }
@@ -566,7 +568,7 @@
         })(window);
     </script>
 </head>
-
+<!-- 项目文档地址  https://github.com/sensese/sense -->
 <body>
   <div id="app1">
     {{title}}
@@ -576,20 +578,20 @@
     @when(text=="a",{
       <div> div ：{{text}}</div>
       @else
-      textarea :
-      <textarea value="{{text}}">
+      <div>textarea :</div>
+      <textarea value="{{text}}" style="margin: 0px; width: 500px; height: 200px;">
         {{text}}
       </textarea>
     })
-    <br/>
-    <input type="text" value="{{text}}"/>
+    <div>
+      <input type="text" value="{{text}}" style="margin: 0px; width: 500px;"/>
+    </div>
   </div>
 </body>
 </html>
-
 <script type="text/javascript">
 new view("#app1", {
-    title : "Sense Web MVVM Framework"
+    title : "sense mvvn framework"
 });
 new view("#app2", {
     text : "输入点什么"
