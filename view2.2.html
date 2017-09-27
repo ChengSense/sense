@@ -84,6 +84,8 @@
             express: function(node, scope) {
                 try {
                     node.node.nodeValue = code(node.clasNode.nodeValue, scope);
+                    if (node.node.name == "value")
+            					node.node.ownerElement.value = node.node.nodeValue;
                 } catch(e) {
                     console.log(e);
                 }
@@ -143,8 +145,8 @@
                     });
                     return eval(_express);
                 }
-            } catch(err) {
-                console.log(err)
+            } catch(e) {
+                console.log(e)
             }
         }
         function nodeList(nodes) {
@@ -243,7 +245,7 @@
             (node.nodeValue || "").replace(express,function(key) {
                 key = key.replace(express, "$1");
                 key.replace(/\b(\w)\w*/g, function(key) {
-                    if (scope[key]==undefined||!codei(key, scope)) return;
+                    if (scope[key]==undefined||codei(key, scope)==undefined) return;
                     cache[$path] = cache[$path] || [];
                     cache[$path].push({
                         resolver: "express",
@@ -277,12 +279,16 @@
         function commom(node, scope) {
             each(node.attributes, function(child) {
                 child.name.replace(express,function(tag) {
-                    var node = document.createAttribute(code(child.name, scope));
-                    node.nodeValue = child.nodeValue;
-                    child.ownerElement.setAttributeNode(node);
-                    child.ownerElement.removeAttributeNode(child);
-                    setComCache(node, scope, child);
-                    commom(node, scope);
+                    try {
+                        var node = document.createAttribute(code(child.name, scope));
+                        node.nodeValue = child.nodeValue;
+                        child.ownerElement.setAttributeNode(node);
+                        child.ownerElement.removeAttributeNode(child);
+                        setComCache(node, scope, child);
+                        commom(node, scope);
+                    } catch (e) {
+                        console.log(child.name + "属性节点不允许为null或者''， " + child.name +"=" +child.nodeValue +"属性节点创建失败" );
+                    }
                 });
                 commom(child, scope);
             });
@@ -556,22 +562,20 @@
     </script>
 </head>
 <body>
-  <view>
-    <div>{{name}}</div>
-    @when(name=="1",{
-      <div>年龄：{{name}}</div>
-      @else
-      <div>姓名：{{name}}</div>
-    })
-    <input type="text" value="{{name}}" {{name}}="111111111111111111"/>
-  </view>
+  <div id="app">
+    <div>{{text}}</div>
+    <textarea value="{{text}}">
+      {{text}}
+    </textarea>
+    <br/>
+    <input type="text" value="{{text}}"/>
+  </div>
 </body>
+
 </html>
 <script type="text/javascript">
 var data = {
-    name : "chengdongliang",
-    list1: [1, 2],
-    list2: [4, 5]
+    text : "aaaaaaaaaaaaa"
 }
-view("view", data);
+view("#app", data);
 </script>
