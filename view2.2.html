@@ -414,10 +414,11 @@
                     childNodes.shift();
                 });
             }
-            function binding(elem, node, scope) {
-                elem.model = node.nodeValue.replace(express, "$1");
-                elem.on("change", function handle() {
-                    codei(elem.model +"='"+elem.value.replace(/(\'|\")/g,"\\$1")+"'",scope);
+            function binding(node, scope) {
+                var owner = node.ownerElement;
+                owner._express = node.nodeValue.replace(express, "$1");
+                owner.on("change", function handle() {
+                    scope[owner._express] = owner.value;
                 });
             }
             var apply = query(elem);
