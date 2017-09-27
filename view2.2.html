@@ -12,7 +12,7 @@
         var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
         var $else = /(@else)/g;
         var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
-        var $lang = /(@each|@when)\s*\((.*)\s*,\s*\{|\}\s*\)|(@else)/g;
+        var $lang = /((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w.*\}\s*\}|\s*\}\s*\)|@else)/g;
         var $close = /\}\s*\)\s*/g;
         var $break = /\}\s*\)|(@else)/g;
         function view(elem, scope) {
@@ -176,7 +176,7 @@
                         init(nodeList(node.childNodes));
                     switch (node.nodeType) {
                     case 3:
-                        node.nodeValue.replace(/((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w.*\}\s*\}|\s*\}\s*\)|@else)/g,function(tag) {
+                        node.nodeValue.replace($lang,function(tag) {
                             var nodes = node.nodeValue.split(tag);
                             node.parentNode.insertBefore(document.createTextNode(nodes[0]), node);
                             node.parentNode.insertBefore(document.createTextNode(tag), node);
