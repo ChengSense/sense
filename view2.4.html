@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>main.html</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="./view2.3.css" />
+  <script type="text/javascript" src="./view2.4.js"></script>
+  <script type="text/javascript">
+    $(function () {
+      new view({
+        view: ".todo-list",
+        modle: {
+          newTodo: "输入点什么？",
+          list: [{
+            title: "拓道金服"
+          }],
+          count: 0
+        },
+        ctrl: function () {
+          var data = this.modle;
+          query(".new-todo").on("keyup", function () {
+            data.count = data.count + 1;
+            data.list.push({
+              title: this.value
+            });
+            data.list = data.list;
+            console.log(data.list);
+          });
+        }
+      });
+    })
+  </script>
+</head>
+<!-- 项目文档地址  https://github.com/sensese/sense -->
+
+<body>
+    <div class="todo-list">
+      <div each="todo:list">
+        {{todo.title}}
+      </div>
+      <input class="new-todo" value="{{newTodo}}"/>
+    </div>
+</body>
+</html>
