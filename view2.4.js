@@ -300,15 +300,23 @@
                 });
         }
         function setting(child, scope) {
-            child.node = (child.clasNode || child.node);
             each(child.scope, function (child, key) {
                 if (!scope[key])
                     scope[key] = child
             });
+            if (!child.clasNode)
+                return child;
+            return {
+                node: (child.clasNode || child.node),
+                scope: scope,
+                clasNode: child.clasNode,
+                children: child.children,
+                childNodes: []
+            };
         }
         function compiler(node, iscope, childNodes, content) {
             each(childNodes, function (child, index, childNodes) {
-                setting(child, iscope);
+                child = setting(child, iscope);
                 if (child.node.nodeValue && child.node.nodeValue.match($break)) {
                     childNodes.splice(0, childNodes.length);
                     return true;
