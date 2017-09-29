@@ -1,14 +1,14 @@
 
 (function () {
-    var express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
-    var variable = /\w+/g;
+    var $express = /\{\s*\{([^\{\}]*)\}\s*\}/g;
     var $each = /(@each)\s*\((.*)\s*,\s*\{/g;
     var $when = /(@when)\s*\((.*)\s*,\s*\{/g;
     var $else = /(@else)/g;
     var $chen = /(@each|@when)\s*\((.*)\s*,\s*\{/g;
-    var $lang = /((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{\w.*\}\s*\}|\s*\}\s*\)|@else)/g;
+    var $lang = /((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{([^\{\}]*)\}\s*\}|\s*\}\s*\)|@else)/g;
     var $close = /\}\s*\)\s*/g;
     var $break = /\}\s*\)|(@else)/g;
+    var $word = /\w+/g;
     function view(app) {
         var cache = [], $path;
         function cacheNode(nodes, children) {
@@ -61,11 +61,11 @@
                     var node = initCompiler(blankOut(init(nodeList(apply))))[0];
                     var doc = document.createDocumentFragment();
                     compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
-                    app.view = apply[0];
-                    app.ctrl();
                     console.log(cache);
                     apply[0].innerHTML = "";
                     apply[0].appendChild(doc);
+                    app.view = apply[0];
+                    app.ctrl();
                     return apply[0];
                 } catch (e) {
                     console.log(e);
@@ -106,7 +106,7 @@
         function code(_express, _scope) {
             try {
                 with (_scope) {
-                    _express = _express.replace(/\{\s*\{([^\{\}]*)\}\s*\}/g, "$1").replace(/[\f\n\r\v]/g, "")
+                    _express = _express.replace($express, "$1").replace(/[\f\n\r\v]/g, "")
                     return codei(_express, _scope);
                 }
             } catch (err) {
@@ -115,7 +115,7 @@
         }
         function buildPath(_express) {
             try {
-                _express = _express.replace("$path:", "").replace(/(\b(\w)\w*)\.?/g, "['$1']").replace(/\['(\b(\w)\w*)'\]/, "$1")
+                _express = _express.replace("$path:", "").replace(/(\w+)\.?/g, "['$1']").replace(/\['(\w+)'\]/, "$1")
                 return _express;
             } catch (err) {
                 console.log(err)
@@ -124,7 +124,7 @@
         function codei(_express, _scope) {
             try {
                 with (_scope) {
-                    _express = _express.replace(/(\b(\w)\w*)/g, function (express) {
+                    _express = _express.replace($word, function (express) {
                         try {
                             var variable = eval(express);
                             if (typeof (variable) == 'string' && /^\$path:/g.test(variable))
@@ -203,7 +203,7 @@
                     });
                     (clasNode.clasNode.nodeValue || "").replace($when, function (key) {
                         key = key.replace($when, "$2");
-                        key.replace(/\b(\w)\w*/g, function (key) {
+                        key.replace($word, function (key) {
                             if (scope[key] == undefined || !codei(key, scope)) return;
                             cache[$path] = cache[$path] || [];
                             clasNode.resolver = "chen",
@@ -219,8 +219,8 @@
         function setComCache(node, scope, clasNode) {
             if (node.name == "value")
                 binding(node, scope);
-            (clasNode.name || "").replace(express, function (key) {
-                key = key.replace(express, "$1");
+            (clasNode.name || "").replace($express, function (key) {
+                key = key.replace($express, "$1");
                 if (scope[key] == undefined || !codei(key, scope)) return;
                 cache[$path] = cache[$path] || [];
                 cache[$path].push({
@@ -231,9 +231,9 @@
                     clasNode: clasNode
                 });
             });
-            (node.nodeValue || "").replace(express, function (key) {
-                key = key.replace(express, "$1");
-                key.replace(/\b(\w)\w*/g, function (key) {
+            (node.nodeValue || "").replace($express, function (key) {
+                key = key.replace($express, "$1");
+                key.replace($word, function (key) {
                     if (scope[key] == undefined || codei(key, scope) == undefined) return;
                     cache[$path] = cache[$path] || [];
                     cache[$path].push({
@@ -267,7 +267,7 @@
         }
         function commom(node, scope) {
             each(node.attributes, function (child) {
-                child.name.replace(express, function (tag) {
+                child.name.replace($express, function (tag) {
                     try {
                         var node = document.createAttribute(code(child.name, scope));
                         node.nodeValue = child.nodeValue;
@@ -282,7 +282,7 @@
                 commom(child, scope);
             });
             if (node.nodeValue)
-                node.nodeValue.replace(express, function () {
+                node.nodeValue.replace($express, function () {
                     setComCache(node, scope, node.cloneNode(true));
                     node.nodeValue = code(node.nodeValue, scope);
                 });
@@ -398,7 +398,7 @@
         }
         function binding(node, scope) {
             var owner = node.ownerElement;
-            owner._express = node.nodeValue.replace(express, "$1");
+            owner._express = node.nodeValue.replace($express, "$1");
             owner.on("change", function handle() {
                 scope[owner._express] = owner.value;
             });
@@ -435,7 +435,7 @@
     }
     function ready(func) {
         var done = false;
-        var init = function() {
+        var init = function () {
             if (done) {
                 document.removeEventListener("DOMContentLoaded", init, false);
                 window.removeEventListener("load", init, false);
@@ -456,27 +456,26 @@
             object.prototype[key] = config[key];
         }
     }
-    function each(obj, arg, fu) {
-        if (obj == null) return argu;
-        var func = (arguments[2] || arguments[1]), argu = (2 < arguments.length ? arg : obj);
-        if (typeof obj != "object" || typeof func != "function")
-            return;
+    function each(obj, arg, callback) {
+        if (!obj || typeof obj != "object") return arg;
+        var methd = arguments[2] || arguments[1];
+        var args = arguments[2] ? arg : obj;
         if (obj.length) {
             var length = obj.length;
             for (var i = 0; i < length; i++) {
                 if (obj.length != length)
                     i-- , length = obj.length;
                 if (obj.hasOwnProperty(i))
-                    if (func.call(obj[i], obj[i], i, argu))
+                    if (methd.call(obj[i], obj[i], i, args))
                         break;
             }
         } else {
             for (var i in obj)
                 if (obj.hasOwnProperty(i))
-                    if (func.call(obj[i], obj[i], i, argu))
+                    if (methd.call(obj[i], obj[i], i, args))
                         break;
         }
-        return argu;
+        return args;
     }
     setPrototype(Array, {
         remove: function (n) {
@@ -505,9 +504,10 @@
             this["eventManager"] = this["eventManager"] || {};
             if (!this["eventManager"][type]) {
                 this["eventManager"][type] = [];
+                var node = this;
                 this.addEventListener(type, function (e) {
                     each(this["eventManager"][type], function () {
-                        this();
+                        this.call(node, arguments);
                     });
                 }, false);
             }
@@ -541,114 +541,114 @@
         }
     });
     setPrototype(NodeList, {
-        on : function(type, call, bol) {
-            each(this, function(node) {
+        on: function (type, call, bol) {
+            each(this, function (node) {
                 node.on(type, call, bol);
             });
         },
-        off : function(type, call, bol) {
-            each(this, function(node) {
+        off: function (type, call, bol) {
+            each(this, function (node) {
                 node.off(type, call, bol);
             });
         },
-        append : function(node) {
+        append: function (node) {
             switch (typeof node) {
-            case "string":
-                var newNode = document.createElement("div");
-                newNode.innerHTML = node;
-                each(newNode.childNodes, this[0], function(node, i, thiz) {
-                    thiz.appendChild(node);
-                });
-                break;
-            default:
-                switch (node.length) {
-                case undefined:
-                    this[0].appendChild(node);
-                    break;
-                default:
-                    each(node, this[0], function(node, i, thiz) {
+                case "string":
+                    var newNode = document.createElement("div");
+                    newNode.innerHTML = node;
+                    each(newNode.childNodes, this[0], function (node, i, thiz) {
                         thiz.appendChild(node);
                     });
                     break;
-                }
-                break;
+                default:
+                    switch (node.length) {
+                        case undefined:
+                            this[0].appendChild(node);
+                            break;
+                        default:
+                            each(node, this[0], function (node, i, thiz) {
+                                thiz.appendChild(node);
+                            });
+                            break;
+                    }
+                    break;
             }
         },
-        after : function(node) {
+        after: function (node) {
             switch (typeof node) {
-            case "string":
-                var newNode = document.createElement("div");
-                newNode.innerHTML = node;
-                each(newNode.childNodes, this[0], function(node, i, thiz) {
-                    thiz.parentNode.insertBefore(this, thiz.nextSibling);
-                });
-                break;
-            default:
-                switch (node.length) {
-                case undefined:
-                    this[0].parentNode.insertBefore(node, this[0].nextSibling);
-                    break;
-                default:
-                    each(node, this[0], function(node, i, thiz) {
-                        thiz.parentNode.insertBefore(node, thiz.nextSibling);
+                case "string":
+                    var newNode = document.createElement("div");
+                    newNode.innerHTML = node;
+                    each(newNode.childNodes, this[0], function (node, i, thiz) {
+                        thiz.parentNode.insertBefore(this, thiz.nextSibling);
                     });
                     break;
-                }
-                break;
+                default:
+                    switch (node.length) {
+                        case undefined:
+                            this[0].parentNode.insertBefore(node, this[0].nextSibling);
+                            break;
+                        default:
+                            each(node, this[0], function (node, i, thiz) {
+                                thiz.parentNode.insertBefore(node, thiz.nextSibling);
+                            });
+                            break;
+                    }
+                    break;
             }
         },
-        before : function(node) {
+        before: function (node) {
             switch (typeof node) {
-            case "string":
-                var newNode = document.createElement("div");
-                newNode.innerHTML = node;
-                each(newNode.childNodes, this[0], function(node, i, thiz) {
-                    thiz.parentNode.insertBefore(this, thiz);
-                });
-                break;
-            default:
-                switch (node.length) {
-                case undefined:
-                    this[0].parentNode.insertBefore(node, this[0]);
-                    break;
-                default:
-                    each(node, this[0], function(node, i, thiz) {
-                        thiz.parentNode.insertBefore(node, thiz);
+                case "string":
+                    var newNode = document.createElement("div");
+                    newNode.innerHTML = node;
+                    each(newNode.childNodes, this[0], function (node, i, thiz) {
+                        thiz.parentNode.insertBefore(this, thiz);
                     });
                     break;
-                }
-                break;
+                default:
+                    switch (node.length) {
+                        case undefined:
+                            this[0].parentNode.insertBefore(node, this[0]);
+                            break;
+                        default:
+                            each(node, this[0], function (node, i, thiz) {
+                                thiz.parentNode.insertBefore(node, thiz);
+                            });
+                            break;
+                    }
+                    break;
             }
         },
-        replace : function(node) {
+        replace: function (node) {
             switch (typeof node) {
-            case "string":
-                var newNode = document.createElement("div");
-                newNode.innerHTML = node;
-                each(newNode.childNodes, this[0], function(node, i, thiz) {
-                    thiz.parentNode.replaceChild(this, thiz);
-                });
-                break;
-            default:
-                switch (node.length) {
-                case undefined:
-                    this[0].parentNode.replaceChild(node, this[0]);
-                    break;
-                default:
-                    each(node, this[0], function(node, i, thiz) {
-                        thiz.parentNode.replaceChild(node, thiz);
+                case "string":
+                    var newNode = document.createElement("div");
+                    newNode.innerHTML = node;
+                    each(newNode.childNodes, this[0], function (node, i, thiz) {
+                        thiz.parentNode.replaceChild(this, thiz);
                     });
                     break;
-                }
-                break;
+                default:
+                    switch (node.length) {
+                        case undefined:
+                            this[0].parentNode.replaceChild(node, this[0]);
+                            break;
+                        default:
+                            each(node, this[0], function (node, i, thiz) {
+                                thiz.parentNode.replaceChild(node, thiz);
+                            });
+                            break;
+                    }
+                    break;
             }
         },
-        remove : function() {
-            each(this, function(node) {
+        remove: function () {
+            each(this, function (node) {
                 node.parentNode.removeChild(node);
             });
         },
-        clone : function(bol) {
+        clone: function (bol) {
             return this[0].cloneNode(bol || true);
         }
     });
