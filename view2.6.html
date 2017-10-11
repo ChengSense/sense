@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>main.html</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="./view2.3.css" />
+  <script type="text/javascript" src="./view2.5.js"></script>
+  <script type="text/javascript">
+    $(function () {
+      new view({
+        view: ".todo-list",
+        modle: {
+          newTodo: "......",
+          list: [{
+            title: "test"
+          }],
+          count: 0
+        },
+        ctrl: function () {
+          var data = this.modle;
+          query(".new-todo").on("change", function () {
+              data.list[0] = {
+                title: "1111111"
+              };
+              data.list.push({
+                title: this.value
+              });
+              console.log(data);
+          });
+        }
+      });
+    })
+  </script>
+</head>
+<!-- 项目文档地址  https://github.com/sensese/sense -->
+
+<body style="margin-top:500px">
+    <div class="todo-list">
+        <ul>
+          @each(todo:list,{
+            <li>
+              @when(newTodo=="1",{
+                1111111111111
+                @else
+                {{todo.title}}
+              })
+            </li>
+          })
+        </ul>
+      <input class="new-todo" value="{{newTodo}}"/>
+    </div>
+</body>
+</html>
