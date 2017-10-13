@@ -71,6 +71,7 @@
                     each(vie.cache, function (nodes, key) {
                         cache[key] = (cache[key] || []).add(nodes);
                     });
+                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -86,6 +87,7 @@
                                 node.content.childNodes.remove(node).push(child);
                         });
                     });
+                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -116,12 +118,13 @@
         }
         function clearWhenNode(nodes) {
             each(nodes, function (node) {
+                clearChenNode([node]);
                 each(cache, function (children) {
                     children.remove(node);
                     each(children, function (child) {
                         if (node.node && child.node && !child.node.ownerElement)
                             if (child.node.isSameNode(node.node))
-                                children.remove(child), clearChenNode([child]);
+                                children.remove(child);
                     });
                 });
                 if (!node.nodeType && node.childNodes)
