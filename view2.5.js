@@ -64,40 +64,75 @@
                     console.log(e);
                 }
             },
-            chen: function (node, scope) {
+            each: function (node, scope) {
                 try {
                     var vie = new view({ view: node, modle: scope });
+                    clearEachNode([node]);
                     each(vie.cache, function (nodes, key) {
-                        var caches = cache[key] = cache[key] || []
+                        cache[key] = (cache[key] || []).add(nodes);
+                    });
+                    console.log(cache);
+                } catch (e) {
+                    console.log(e);
+                }
+            },
+            when: function (node, scope) {
+                try {
+                    var vie = new view({ view: node, modle: scope });
+                    clearWhenNode([node]);
+                    each(vie.cache, function (nodes, key) {
+                        cache[key] = (cache[key] || []).add(nodes);
                         nodes.forEach(function (child) {
-                            caches.forEach(function (node) {
-                                if (child.clasNode && child.clasNode.isSameNode(node.clasNode)) {
-                                    clearChenNode([node]);
-                                    caches.remove(node);
-                                }
-                            });
-                        });
-                        caches.add(nodes);
-                        nodes.forEach(function (child) {
-                            if (child.clasNode && child.clasNode.isSameNode(node.clasNode)) {
-                                clearChenNode([node]);
+                            if (child.clasNode && child.clasNode.isSameNode(node.clasNode))
                                 node.content.childNodes.remove(node).push(child);
-                            }
                         });
                     });
+                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
             }
         };
         observe(app.modle, function (name, path) {
-            var nodes = nodeList(cache[path]), cachedNode = cacheNode(nodes);
-            each(cachedNode, function (node) {
+            var nodes = each(cache[path], [], function (node, i, list) {
+                if (node.resolver && node.resolver == "each")
+                    return list.push(node);
+            });
+            each(nodes, function (node) {
                 resolver[node.resolver](node, Object.assign({}, app.modle));
             });
         }, function (name, path) {
             $path = path;
         });
+        function clearEachNode(nodes) {
+            each(nodes, function (node) {
+                each(cache, function (children) {
+                    each(children, function (child) {
+                        if (node.clasNode && !child.clasNode.ownerElement)
+                            if (child.clasNode.isSameNode(node.clasNode))
+                                children.remove(child), clearChenNode([child]);
+                    });
+                });
+                if (!node.nodeType && node.childNodes)
+                    clearEachNode(node.childNodes);
+            });
+            return nodes;
+        }
+        function clearWhenNode(nodes) {
+            each(nodes, function (node) {
+                each(cache, function (children) {
+                    children.remove(node);
+                    each(children, function (child) {
+                        if (node.nodeType && child.node && !child.node.ownerElement)
+                            if (child.node.isSameNode(node))
+                                children.remove(child), clearChenNode([child]);
+                    });
+                });
+                if (!node.nodeType && node.childNodes)
+                    clearWhenNode(node.childNodes);
+            });
+            return nodes;
+        }
         function clearChenNode(nodes) {
             each(nodes, function (child) {
                 if (child.node && child.node.parentNode)
@@ -107,16 +142,6 @@
                 if (!child.nodeType && child.childNodes)
                     clearChenNode(child.childNodes);
             });
-        }
-        function cacheNode(nodes) {
-            var children = nodeList(nodes);
-            each(children, function (node) {
-                each(nodeList(children).remove(node), function (child) {
-                    if (child.clasNode && child.clasNode.isSameNode(node.clasNode))
-                        children.remove(child);
-                });
-            });
-            return children;
         }
         function insertion(nodes, iNode) {
             iNode = iNode || {};
@@ -210,7 +235,7 @@
                     var key = clasNode.clasNode.getAttribute("each").split(":").pop();
                     if (scope[key] == undefined || !codei(key, scope)) return;
                     cache[$path] = cache[$path] || [];
-                    clasNode.resolver = "chen";
+                    clasNode.resolver = "each";
                     clasNode.content = content;
                     clasNode.scope = scope;
                     clasNode.node = node;
@@ -221,7 +246,7 @@
                         key = key.replace($each, "$2").split(":").pop();
                         if (scope[key] == undefined || !codei(key, scope)) return;
                         cache[$path] = cache[$path] || [];
-                        clasNode.resolver = "chen";
+                        clasNode.resolver = "each";
                         clasNode.content = content;
                         clasNode.scope = scope;
                         clasNode.node = node;
@@ -232,7 +257,7 @@
                         key.replace($word, function (key) {
                             if (scope[key] == undefined || !codei(key, scope)) return;
                             cache[$path] = cache[$path] || [];
-                            clasNode.resolver = "chen";
+                            clasNode.resolver = "when";
                             clasNode.content = content;
                             clasNode.scope = scope;
                             clasNode.node = node;
@@ -388,7 +413,7 @@
                                         default:
                                             var newNode = child.node.cloneNode();
                                             node.appendChild(newNode);
-                                            clasNode.childNodes.push(newNode);
+                                            clasNode.childNodes.push(classNode(newNode, child));
                                             commom(newNode, iscope, child.node);
                                             break;
                                     }
@@ -406,7 +431,7 @@
                                                 default:
                                                     var newNode = child.node.cloneNode();
                                                     node.appendChild(newNode);
-                                                    clasNode.childNodes.push(newNode);
+                                                    clasNode.childNodes.push(classNode(newNode, child));
                                                     commom(newNode, iscope, child.node);
                                                     break;
                                             }
@@ -418,7 +443,7 @@
                         } else {
                             var newNode = child.node.cloneNode();
                             node.appendChild(newNode);
-                            content.childNodes.push(newNode);
+                            content.childNodes.push(classNode(newNode, child));
                             commom(newNode, iscope, child.node);
                         }
                         break;
