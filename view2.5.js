@@ -71,7 +71,6 @@
                     each(vie.cache, function (nodes, key) {
                         cache[key] = (cache[key] || []).add(nodes);
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -87,19 +86,16 @@
                                 node.content.childNodes.remove(node).push(child);
                         });
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
             }
         };
         observe(app.modle, function (name, path) {
-            var nodes = each(cache[path], [], function (node, i, list) {
-                if (node.resolver && node.resolver == "each")
-                    return list.push(node);
-            });
-            each(nodes, function (node) {
+            var nodes = each(cache[path], function (node) {
                 resolver[node.resolver](node, Object.assign({}, app.modle));
+                if (node.resolver == "each")
+                    return true;
             });
         }, function (name, path) {
             $path = path;
@@ -123,8 +119,8 @@
                 each(cache, function (children) {
                     children.remove(node);
                     each(children, function (child) {
-                        if (node.nodeType && child.node && !child.node.ownerElement)
-                            if (child.node.isSameNode(node))
+                        if (node.node && child.node && !child.node.ownerElement)
+                            if (child.node.isSameNode(node.node))
                                 children.remove(child), clearChenNode([child]);
                     });
                 });
@@ -136,9 +132,7 @@
         function clearChenNode(nodes) {
             each(nodes, function (child) {
                 if (child.node && child.node.parentNode)
-                    child.node.parentNode.removeChild(child.node);
-                if (child.parentNode)
-                    child.parentNode.removeChild(child);
+                    return child.node.parentNode.removeChild(child.node);
                 if (!child.nodeType && child.childNodes)
                     clearChenNode(child.childNodes);
             });
