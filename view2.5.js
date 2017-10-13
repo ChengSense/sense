@@ -71,7 +71,6 @@
                     each(vie.cache, function (nodes, key) {
                         cache[key] = (cache[key] || []).add(nodes);
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -87,7 +86,6 @@
                                 node.content.childNodes.remove(node).push(child);
                         });
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -111,7 +109,7 @@
                                 children.remove(child), clearChenNode([child]);
                     });
                 });
-                if (!node.nodeType && node.childNodes)
+                if (node.childNodes)
                     clearEachNode(node.childNodes);
             });
             return nodes;
@@ -127,7 +125,7 @@
                                 children.remove(child);
                     });
                 });
-                if (!node.nodeType && node.childNodes)
+                if (node.childNodes)
                     clearWhenNode(node.childNodes);
             });
             return nodes;
@@ -136,7 +134,7 @@
             each(nodes, function (child) {
                 if (child.node && child.node.parentNode)
                     return child.node.parentNode.removeChild(child.node);
-                if (!child.nodeType && child.childNodes)
+                if (child.childNodes)
                     clearChenNode(child.childNodes);
             });
         }
