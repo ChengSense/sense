@@ -757,10 +757,14 @@
             if (typeof target == "object") {
                 Object.keys(target).forEach(function (prop) {
                     var path = Object.create(root || []);
-                    path.push(prop);
-                    if (typeof target[prop] == "object")
-                        _observe(target[prop], callSet, callGet, object[prop] = {}, path);
-                    _watch(target, prop, object, path);
+                    if (target.hasOwnProperty(prop)) {
+                        if (!Object.getOwnPropertyDescriptor(target, prop).set) {
+                            path.push(prop);
+                            if (typeof target[prop] == "object")
+                                _observe(target[prop], callSet, callGet, object[prop] = {}, path);
+                            _watch(target, prop, object, path);
+                        }
+                    }
                 })
             }
             return target;
@@ -769,12 +773,15 @@
             var value = target[prop];
             Object.defineProperty(target, prop, {
                 get: function () {
-                    callGet.call(this, prop, path.join("."));
+                    if (object[prop])
+                        callGet.call(this, prop, path.join("."));
                     return object[prop];
                 },
                 set: function (value) {
+                    var oldValue = target[prop];
                     object[prop] = _observe(value, callSet, callGet, object[prop] = {}, path);
-                    callSet.call(this, prop, path.join("."));
+                    if (oldValue != undefined)
+                        callSet.call(this, prop, path.join("."));
                 }
             });
             target[prop] = value;
