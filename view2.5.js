@@ -71,6 +71,7 @@
                     each(vie.cache, function (nodes, key) {
                         cache[key] = (cache[key] || []).add(nodes);
                     });
+                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -86,16 +87,20 @@
                                 node.content.childNodes.remove(node).push(child);
                         });
                     });
+                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
             }
         };
-        observe(app.modle, function (name, path) {
-            var nodes = each(cache[path], function (node) {
-                resolver[node.resolver](node, Object.assign({}, app.modle));
+        observe(Object.assign({}, app.modle), function (name, path) {
+            var nodes = each(nodeList(cache[path]), [], function (node, i, list) {
+                list.push(node);
                 if (node.resolver == "each")
                     return true;
+            });
+            each(nodes, function (node) {
+                resolver[node.resolver](node, Object.assign({}, app.modle));
             });
         }, function (name, path) {
             $path = path;
