@@ -14,24 +14,20 @@
         var resolver = {
             init: function (apply, scope) {
                 try {
-                    var node = blankOut(initCompiler(init(nodeList(apply))))[0];
                     var doc = document.createDocumentFragment();
-                    compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
-                    apply[0].innerHTML = "";
-                    apply[0].appendChild(doc);
-                    app.view = apply[0];
-                    app.ctrl();
-                    return apply[0];
-                } catch (e) {
-                    console.log(e);
-                }
-            },
-            inits: function (node, scope) {
-                try {
-                    var iNode = insertion([node]);
-                    var doc = document.createDocumentFragment();
-                    compiler(doc, scope, [node], { childNodes: [], childNode: [] });
-                    iNode.parentNode.insertBefore(doc, iNode);
+                    if (apply.clasNode) {
+                        var node = insertion([apply]);
+                        compiler(doc, scope, [apply], { childNodes: [], childNode: [] });
+                        node.parentNode.insertBefore(doc, node);
+                    } else {
+                        apply = query(apply);
+                        app.view = apply[0];
+                        var node = blankOut(initCompiler(init(nodeList(apply))))[0];
+                        compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
+                        app.view.clear(doc);
+                        app.ctrl();
+                        return app.view;
+                    }
                 } catch (e) {
                     console.log(e);
                 }
@@ -93,18 +89,6 @@
                 }
             }
         };
-        observe(Object.assign({}, app.modle), function (name, path) {
-            var nodes = each(nodeList(cache[path]), [], function (node, i, list) {
-                list.push(node);
-                if (node.resolver == "each")
-                    return true;
-            });
-            each(nodes, function (node) {
-                resolver[node.resolver](node, Object.assign({}, app.modle));
-            });
-        }, function (name, path) {
-            $path = path;
-        });
         function clearEachNode(nodes) {
             each(nodes, function (node) {
                 each(cache, function (children) {
@@ -458,7 +442,19 @@
                 scope[owner._express] = owner.value;
             });
         }
-        resolver[app.view.clasNode ? "inits" : "init"](app.view.clasNode ? app.view : query(app.view), app.modle);
+        observe(app.modle, function (name, path) {
+            var nodes = each(nodeList(cache[path]), [], function (node, i, list) {
+                list.push(node);
+                if (node.resolver == "each")
+                    return true;
+            });
+            each(nodes, function (node) {
+                resolver[node.resolver](node, app.modle.clone());
+            });
+        }, function (name, path) {
+            $path = path;
+        });
+        resolver["init"](app.view, app.modle);
         return this;
     }
     window.view = view;
@@ -533,6 +529,30 @@
             return data;
         }
     });
+    setPrototype(Object, {
+        clone: function (data) {
+            // Handle Number
+            if (data instanceof Number )
+                return data;
+            data = data || this;
+            // Handle Array
+            if (data instanceof Array) {
+                var copy = [];
+                for (var i = 0; i < data.length; ++i)
+                    copy[i] = Object.clone(data[i]);
+                return copy;
+            }
+            // Handle Object
+            if (data instanceof Object) {
+                var copy = {};
+                for (var attr in data)
+                    if (data.hasOwnProperty(attr)) 
+                        copy[attr] = Object.clone(data[attr]);
+                return copy;
+            }
+            return data;
+        }
+    });
     setPrototype(Array, {
         add: function (n) {
             var thiz = this;
@@ -566,7 +586,7 @@
             this.splice(0, this.length);
             return this;
         }
-    })
+    });
     setPrototype(Node, {
         on: function (type, call) {
             this["eventManager"] = this["eventManager"] || {};
@@ -606,7 +626,12 @@
                     });
                     return node;
             }
-        }
+        },
+        clear: function (node) {
+            this.innerHTML = "";
+            this.appendChild(node);
+            return this;
+        },
     });
     setPrototype(NodeList, {
         on: function (type, call, bol) {
@@ -710,11 +735,6 @@
                     }
                     break;
             }
-        },
-        remove: function () {
-            each(this, function (node) {
-                node.parentNode.removeChild(node);
-            });
         },
         clone: function (bol) {
             return this[0].cloneNode(bol || true);
