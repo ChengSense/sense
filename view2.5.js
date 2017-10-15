@@ -530,27 +530,18 @@
         }
     });
     setPrototype(Object, {
-        clone: function (data) {
-            // Handle Number
-            if (data instanceof Number )
-                return data;
-            data = data || this;
-            // Handle Array
-            if (data instanceof Array) {
-                var copy = [];
-                for (var i = 0; i < data.length; ++i)
-                    copy[i] = Object.clone(data[i]);
-                return copy;
-            }
-            // Handle Object
-            if (data instanceof Object) {
-                var copy = {};
-                for (var attr in data)
-                    if (data.hasOwnProperty(attr)) 
-                        copy[attr] = Object.clone(data[attr]);
-                return copy;
-            }
-            return data;
+        clone: function (p) {
+            p = p || this;
+            var c = new p.constructor();
+            Object.keys(p).forEach(function (i) {
+                if (p == p[i])
+                    p[i] = {}
+                if (typeof (p[i]) == "object")
+                    c[i] = Object.clone(p[i]);
+                else
+                    c[i] = p[i];
+            });
+            return c;
         }
     });
     setPrototype(Array, {
