@@ -18,12 +18,14 @@
                     if (apply.clasNode) {
                         var node = insertion([apply]);
                         compiler(doc, scope, [apply], { childNodes: [], childNode: [] });
+                        //console.log(cache);
                         node.parentNode.insertBefore(doc, node);
                     } else {
                         apply = query(apply);
                         app.view = apply[0];
                         var node = blankOut(initCompiler(init(nodeList(apply))))[0];
                         compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
+                        //console.log(cache);
                         app.view.clear(doc);
                         app.ctrl();
                         return app.view;
@@ -65,9 +67,8 @@
                     var vie = new view({ view: node, modle: scope });
                     clearEachNode([node]);
                     each(vie.cache, function (nodes, key) {
-                        cache[key] = (cache[key] || []).add(nodes);
+                        cache[key] = (cache[key] || new Map()).add(nodes);
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -77,13 +78,11 @@
                     var vie = new view({ view: node, modle: scope });
                     clearWhenNode([node]);
                     each(vie.cache, function (nodes, key) {
-                        cache[key] = (cache[key] || []).add(nodes);
-                        nodes.forEach(function (child) {
-                            if (child.clasNode && child.clasNode.isSameNode(node.clasNode))
-                                node.content.childNodes.remove(node).push(child);
+                        cache[key] = (cache[key] || new Map()).add(nodes);
+                        (nodes.get(node.clasNode) || []).forEach(function (child) {
+                            node.content.childNodes.remove(node).push(child);
                         });
                     });
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -92,11 +91,9 @@
         function clearEachNode(nodes) {
             each(nodes, function (node) {
                 each(cache, function (children) {
-                    each(children, function (child) {
-                        if (node.clasNode && !child.clasNode.ownerElement)
-                            if (child.clasNode.isSameNode(node.clasNode))
-                                children.remove(child), clearChenNode([child]);
-                    });
+                    var childNodes = children.get(node.clasNode) || [];
+                    clearChenNode(childNodes);
+                    childNodes.clear();
                 });
                 if (node.childNodes)
                     clearEachNode(node.childNodes);
@@ -107,12 +104,12 @@
             each(nodes, function (node) {
                 clearChenNode([node]);
                 each(cache, function (children) {
-                    children.remove(node);
-                    each(children, function (child) {
+                    var childNodes = children.get(node.clasNode) || [];
+                    childNodes.remove(node).forEach(function (child) {
                         if (node.node && child.node && !child.node.ownerElement)
                             if (child.node.isSameNode(node.node))
-                                children.remove(child);
-                    });
+                                childNodes.remove(child);
+                    })
                 });
                 if (node.childNodes)
                     clearWhenNode(node.childNodes);
@@ -122,21 +119,19 @@
         function clearChenNode(nodes) {
             each(nodes, function (child) {
                 if (child.node && child.node.parentNode)
-                    return child.node.parentNode.removeChild(child.node);
+                    child.node.parentNode.removeChild(child.node);
                 if (child.childNodes)
                     clearChenNode(child.childNodes);
             });
         }
-        function insertion(nodes, iNode) {
-            iNode = iNode || {};
-            each(nodes, function (child) {
-                if (child.parentNode || child.ownerElement)
-                    return iNode["0"] = child.ownerElement || child;
-                if (child.node && (child.node.parentNode || child.node.ownerElement))
-                    return iNode["0"] = child.node.ownerElement || child.node;
-                insertion(child.childNodes, iNode);
-            });
-            return iNode["0"];
+        function insertion(nodes, node) {
+            for (var index = 0; index < nodes.length; index++) {
+                var child = nodes[index];
+                if (child.node && child.node.parentNode || child.parentNode)
+                    return node = child.node || child;
+                insertion(child.childNodes, node);
+            }
+            return node;
         }
         function code(_express, _scope) {
             try {
@@ -189,6 +184,41 @@
                 childNodes: []
             };
         }
+        setPrototype(Map, {
+            each: function (k, n) {
+                var childNodes = this.get(k.clasNode);
+                if (childNodes) {
+                    childNodes.push(k);
+                } else {
+                    k.node = n.childNodes[0];
+                    k.childNodes = k.content.childNodes;
+                    this.set(k.clasNode, [k]);
+                }
+            },
+            chen: function (k, n) {
+                var childNodes = this.get(k.clasNode);
+                if (childNodes) {
+                    childNodes.push(k);
+                } else {
+                    this.set(k.clasNode, [k])
+                }
+            },
+            setting: function (k, v) {
+                if (this[k.resolver]) {
+                    this.each(k, v);
+                } else {
+                    this.chen(k, v);
+                }
+            },
+            add: function (n) {
+                var thiz = this;
+                n.forEach(function (entity, i) {
+                    thiz.set(i, thiz.get(i) || []);
+                    thiz.get(i).add(entity);
+                })
+                return this;
+            }
+        });
         function init(dom) {
             each(dom, function (node) {
                 if (node.childNodes[0] && node.nodeName != "SCRIPT")
@@ -212,40 +242,40 @@
             });
             return dom;
         }
-        function setCache(node, scope, clasNode, content) {
+        function setCache(node, scope, clasNode, content, inode) {
             if (!clasNode.clasNode) return;
             switch (clasNode.clasNode.nodeType) {
                 case 1:
                     var key = clasNode.clasNode.getAttribute("each").split(":").pop();
                     if (scope[key] == undefined || !codei(key, scope)) return;
-                    cache[$path] = cache[$path] || [];
+                    cache[$path] = cache[$path] || new Map();
                     clasNode.resolver = "each";
                     clasNode.content = content;
                     clasNode.scope = scope;
                     clasNode.node = node;
-                    cache[$path].push(clasNode);
+                    cache[$path].setting(clasNode, inode);
                     return;
                 default:
                     (clasNode.clasNode.nodeValue || "").replace($each, function (key) {
                         key = key.replace($each, "$2").split(":").pop();
                         if (scope[key] == undefined || !codei(key, scope)) return;
-                        cache[$path] = cache[$path] || [];
+                        cache[$path] = cache[$path] || new Map();
                         clasNode.resolver = "each";
                         clasNode.content = content;
                         clasNode.scope = scope;
                         clasNode.node = node;
-                        cache[$path].push(clasNode);
+                        cache[$path].setting(clasNode, inode);
                     });
                     (clasNode.clasNode.nodeValue || "").replace($when, function (key) {
                         key = key.replace($when, "$2");
                         key.replace($word, function (key) {
                             if (scope[key] == undefined || !codei(key, scope)) return;
-                            cache[$path] = cache[$path] || [];
+                            cache[$path] = cache[$path] || new Map();
                             clasNode.resolver = "when";
                             clasNode.content = content;
                             clasNode.scope = scope;
                             clasNode.node = node;
-                            cache[$path].push(clasNode);
+                            cache[$path].setting(clasNode, inode);
                         });
                     });
                     break;
@@ -257,8 +287,8 @@
             (clasNode.name || "").replace($express, function (key) {
                 key = key.replace($express, "$1");
                 if (scope[key] == undefined || !codei(key, scope)) return;
-                cache[$path] = cache[$path] || [];
-                cache[$path].push({
+                cache[$path] = cache[$path] || new Map();
+                cache[$path].setting({
                     resolver: "attribute",
                     clasNode: clasNode,
                     scope: scope,
@@ -269,8 +299,8 @@
                 key = key.replace($express, "$1");
                 key.replace($word, function (key) {
                     if (scope[key] == undefined || codei(key, scope) == undefined) return;
-                    cache[$path] = cache[$path] || [];
-                    cache[$path].push({
+                    cache[$path] = cache[$path] || new Map();
+                    cache[$path].setting({
                         resolver: "express",
                         clasNode: clasNode,
                         scope: scope,
@@ -345,7 +375,11 @@
                         if (child.node.hasAttribute("each")) {
                             var expreses = child.node.getAttribute("each").split(":");
                             child.node.variable = expreses.shift().trim(), child.node.dataSource = expreses.pop().trim();
-                            each(codei(child.node.dataSource, iscope), function (item, index) {
+                            var dataSource = codei(child.node.dataSource, iscope) || [];
+                            node.appendChild(document.createComment($path));
+                            var clasNode = classNode(null, child);
+                            setCache(null, iscope, clasNode, content, node);
+                            each(dataSource, function (item, index) {
                                 var scope = Object.create(iscope || {})
                                 scope[child.node.variable] = "$path:" + $path;
                                 if (expreses[0]) scope[expreses[0].trim()] = index;
@@ -372,6 +406,9 @@
                             var expreses = child.node.nodeValue.replace($each, "$2").split(":");
                             child.node.variable = expreses.shift().trim(), child.node.dataSource = expreses.pop().trim();
                             var dataSource = codei(child.node.dataSource, iscope) || [];
+                            node.appendChild(document.createComment($path));
+                            var clasNode = classNode(null, child);
+                            setCache(null, iscope, clasNode, content, node);
                             each(dataSource, nodeList(child.children), function (item, index, children) {
                                 var scope = Object.create(iscope || {});
                                 scope[child.node.variable] = "$path:" + $path;
@@ -384,7 +421,7 @@
                         } else if ($when.test(child.node.nodeValue)) {
                             var clasNode = classNode(null, child);
                             content.childNodes.push(clasNode);
-                            setCache(null, iscope, clasNode, content);
+                            setCache(null, iscope, clasNode, content, node);
                             var when = codei(child.node.nodeValue.replace($when, "$2"), iscope);
                             if (when) {
                                 each(nodeList(child.children), function (child, index, childNodes) {
@@ -442,18 +479,19 @@
                 scope[owner._express] = owner.value;
             });
         }
-        observe(app.modle, function (name, path) {
-            var nodes = each(nodeList(cache[path]), [], function (node, i, list) {
-                list.push(node);
-                if (node.resolver == "each")
-                    return true;
+        //if (!app.view.clasNode)
+            observe(app.modle, function (name, path) {
+                var nodes = cache[path] || [];
+                nodes.forEach(function (childNodes, clasNode) {
+                    if (childNodes[0] && childNodes[0].resolver == "each")
+                        return resolver[childNodes[0].resolver](childNodes[0], app.modle.clone());
+                    nodeList(childNodes).forEach(function (node) {
+                        resolver[node.resolver](node, app.modle.clone());
+                    });
+                });
+            }, function (name, path) {
+                $path = path;
             });
-            each(nodes, function (node) {
-                resolver[node.resolver](node, app.modle.clone());
-            });
-        }, function (name, path) {
-            $path = path;
-        });
         resolver["init"](app.view, app.modle);
         return this;
     }
@@ -492,8 +530,9 @@
     }
     function setPrototype(object, config) {
         for (var key in config) {
-            object.prototype[key] = config[key];
+            (object.prototype || object.__proto__)[key] = config[key];
         }
+        return object;
     }
     function each(obj, arg, callback) {
         if (!obj || typeof obj != "object") return arg;
@@ -783,5 +822,6 @@
     window.observe = observe;
     window.query = query;
     window.each = each;
+    window.setPrototype = setPrototype;
     window.$ = ready;
 })(window);
