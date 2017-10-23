@@ -16,7 +16,7 @@
                 try {
                     apply = query(apply);
                     app.view = apply[0];
-                    var node = initCompiler(init(nodeList(apply)))[0];
+                    var node = blankOut(initCompiler(init(nodeList(apply))))[0];
                     var doc = document.createDocumentFragment();
                     compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
                     console.log(cache);
@@ -306,6 +306,8 @@
             };
         }
         function setting(child, scope) {
+            if (!child.clasNode)
+                return child;
             return {
                 node: (child.clasNode || child.node),
                 scope: scope,
@@ -436,9 +438,9 @@
             var nodes = cache[path] || [];
             nodes.forEach(function (childNodes, clasNode) {
                 if (childNodes[0] && childNodes[0].resolver == "each")
-                    return resolver[childNodes[0].resolver](childNodes[0], app.modle, childNodes);
+                    return resolver[childNodes[0].resolver](childNodes[0], childNodes[0].scope, childNodes);
                 nodeList(childNodes).forEach(function (node) {
-                    resolver[node.resolver](node, app.modle, childNodes);
+                    resolver[node.resolver](node, node.scope, childNodes);
                 });
             });
         }, function callGet(name, path) {
