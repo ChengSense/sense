@@ -56,7 +56,6 @@
                     var doc = document.createDocumentFragment();
                     compiler(doc, scope, [node], { childNodes: [], childNode: [] });
                     insert.parentNode.insertBefore(doc, insert);
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -71,7 +70,6 @@
                     compiler(doc, scope, [node], { childNodes: [], childNode: [] });
                     comment.parentNode.replaceChild(doc, comment);
                     node.content.childNodes.remove(node).push(childNodes.last());
-                    console.log(cache);
                 } catch (e) {
                     console.log(e);
                 }
@@ -434,7 +432,7 @@
                 scope[owner._express] = owner.value;
             });
         }
-        observe(app.modle, function callSet(name, path) {
+        observe(app.model, function callSet(name, path) {
             var nodes = cache[path] || [];
             nodes.forEach(function (childNodes, clasNode) {
                 if (childNodes[0] && childNodes[0].resolver == "each")
@@ -446,7 +444,7 @@
         }, function callGet(name, path) {
             $path = path;
         });
-        resolver["init"](app.view, app.modle);
+        resolver["init"](app.view, app.model);
         return this;
     }
     window.view = view;
@@ -518,8 +516,7 @@
         Array.prototype[name] = function () {
             var data = method.apply(this, arguments);
             var watch = this.watch
-            if (watch)
-                watch();
+            if (watch) watch();
             return data;
         }
     });
