@@ -749,7 +749,7 @@
                         }
                     });
             }
-            if (typeof target == "object") {
+            if (typeof target == "object" && target != null) {
                 Object.keys(target).forEach(function (prop) {
                     if (target.hasOwnProperty(prop)) {
                         var path = Object.create(root || []);
