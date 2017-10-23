@@ -16,7 +16,7 @@
                 try {
                     apply = query(apply);
                     app.view = apply[0];
-                    var node = blankOut(initCompiler(init(nodeList(apply))))[0];
+                    var node = initCompiler(init(nodeList(apply)))[0];
                     var doc = document.createDocumentFragment();
                     compiler(doc, scope, nodeList(node.children), { childNodes: [], childNode: [] });
                     console.log(cache);
@@ -29,10 +29,6 @@
             },
             express: function (node, scope) {
                 try {
-                    each(node.scope, function (child, key) {
-                        if (!scope[key])
-                            scope[key] = child
-                    });
                     node.node.nodeValue = code(node.clasNode.nodeValue, scope);
                     if (node.node.name == "value")
                         node.node.ownerElement.value = node.node.nodeValue;
@@ -42,10 +38,6 @@
             },
             attribute: function (node, scope) {
                 try {
-                    each(node.scope, function (child, key) {
-                        if (!scope[key])
-                            scope[key] = child
-                    });
                     var newNode = document.createAttribute(code(node.clasNode.name, scope));
                     newNode.nodeValue = node.clasNode.nodeValue;
                     node.node.ownerElement.setAttributeNode(newNode);
@@ -71,7 +63,7 @@
             },
             when: function (node, scope, childNodes) {
                 try {
-                    var insert = insertion([node]); 
+                    var insert = insertion([node]);
                     var comment = document.createComment("");
                     insert.parentNode.replaceChild(comment, insert);
                     clearWhenNode([node]);
@@ -173,16 +165,6 @@
                 list.push(this);
             });
         }
-        function classNode(newNode, child) {
-            return {
-                node: newNode,
-                clasNode: child.node,
-                children: child.children,
-                scope: child.scope,
-                childNodes: []
-            };
-        }
-
         function init(dom) {
             each(dom, function (node) {
                 if (node.childNodes[0] && node.nodeName != "SCRIPT")
@@ -314,13 +296,16 @@
                     node.nodeValue = code(node.nodeValue, scope);
                 });
         }
+        function classNode(newNode, child) {
+            return {
+                node: newNode,
+                clasNode: child.node,
+                children: child.children,
+                scope: child.scope,
+                childNodes: []
+            };
+        }
         function setting(child, scope) {
-            each(child.scope, function (child, key) {
-                if (!scope[key])
-                    scope[key] = child
-            });
-            if (!child.clasNode)
-                return child;
             return {
                 node: (child.clasNode || child.node),
                 scope: scope,
