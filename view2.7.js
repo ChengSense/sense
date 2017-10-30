@@ -23,7 +23,7 @@
                     compiler(doc, scope, clone(node.children), { childNodes: [], childNode: [] });
                     console.log(cache);
                     app.view.clear(doc);
-                    app.controller(app.model);
+                    if(app.controller) app.controller(app.model);
                     return app.view;
                 } catch (e) {
                     console.log(e);
@@ -126,7 +126,7 @@
             return nodes;
         }
         function clearChenNode(nodes) {
-            each(nodes, function (child) {
+            nodes.forEach(function (child) {
                 if (child.node && child.node.parentNode)
                     child.node.parentNode.removeChild(child.node);
                 if (child.childNodes)
@@ -134,14 +134,12 @@
             });
         }
         function insertion(nodes, node) {
-            node = node || [];
-            for (var index = 0; index < nodes.length; index++) {
-                var child = nodes[index];
-                if (child.node && child.node.parentNode || child.parentNode)
-                    return node[0] = child.node || child;
-                insertion(child.childNodes, node);
-            }
-            return node[0];
+            nodes.forEach(function (child) {
+                if (child.node && child.node.parentNode)
+                    return node = child.node;
+                return node = insertion(child.childNodes);
+            });
+            return node;
         }
         function code(_express, _scope) {
             try {
@@ -394,7 +392,7 @@
                             content.childNodes.push(clasNode);
 
                             each(dataSource, function (item, index) {
-                                var scope = Object.create(iscope || {})
+                                var scope = Object.create(iscope || {});
                                 scope[child.node.variable] = "$path:" + $path;
                                 if (expreses[0]) scope[expreses[0].trim()] = "$index:" + index;
                                 var newNode = child.node.cloneNode();
@@ -494,7 +492,8 @@
             var owner = node.ownerElement;
             owner._express = node.nodeValue.replace($express, "$1");
             owner.on("change", function handle() {
-                scope[owner._express] = owner.value;
+                code(owner._express + "='" + owner.value.replace(/(\'|\")/g, "\\$1") + "'", scope);
+                //scope[owner._express] = owner.value;
             });
         }
         observe(app.model, function callSet(name, path) {
@@ -553,7 +552,6 @@
         return object;
     }
     function each(obj, arg, callback) {
-        if (!obj || typeof obj != "object") return arg;
         var methd = arguments[2] || arguments[1];
         var args = arguments[2] ? arg : obj;
         if (Array.isArray(obj)) {
@@ -587,7 +585,7 @@
                     if (watch)
                         watch.call(this, name, [0]);
                     return data;
-                }
+                };
                 break;
             case "push":
                 Array.prototype[name] = function () {
@@ -596,7 +594,7 @@
                     if (watch)
                         watch.call(this, name, [this.length - 1]);
                     return data;
-                }
+                };
                 break;
             case "pop":
                 Array.prototype[name] = function () {
@@ -605,7 +603,7 @@
                     if (watch)
                         watch.call(this, name, [this.length + 1]);
                     return data;
-                }
+                };
                 break;
             case "splice":
                 Array.prototype[name] = function () {
@@ -613,12 +611,13 @@
                     var watch = this.watch;
                     if (watch) {
                         var i = arguments[0], l = arguments[1], params = [];
-                        while (l--)
+                        while (l--) {
                             params.push(i++);
+                        }
                         watch.call(this, name, params);
                     }
                     return data;
-                }
+                };
                 break;
             default:
                 Array.prototype[name] = function () {
@@ -626,7 +625,7 @@
                     var watch = this.watch;
                     if (watch) watch.call(this, name);
                     return data;
-                }
+                };
                 break;
         }
     });
@@ -855,7 +854,7 @@
                             var path = root + ".", thiz = this;
                             params.forEach(function (index) {
                                 callSet.call(thiz, index, path + index);
-                            })
+                            });
                             with ({ obj: obj, target: target }) {
                                 eval("obj" + root.replace(/(\w+)\.?/g, "['$1']") + "=target");
                             }
