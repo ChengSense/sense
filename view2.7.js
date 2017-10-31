@@ -23,8 +23,7 @@
                     compiler(doc, scope, clone(node.children), { childNodes: [], childNode: [] });
                     console.log(cache);
                     app.view.clear(doc);
-                    if(app.controller) app.controller(app.model);
-                    return app.view;
+                    if (app.controller) app.controller(app.model);
                 } catch (e) {
                     console.log(e);
                 }
@@ -510,7 +509,7 @@
             $path = path;
         });
         resolver["init"](app.view, app.model);
-        return this;
+        return app;
     }
     window.view = view;
 })(window);
@@ -846,7 +845,7 @@
         }
     });
     var observe = function (obj, callSet, callGet) {
-        var _observe = function (target, callSet, callGet, root) {
+        var _observe = function (target, callSet, callGet, root, oldTarget) {
             if (Array.isArray(target)) {
                 if (!target.watch)
                     Object.defineProperty(target, "watch", {
@@ -863,10 +862,13 @@
             }
             if (typeof target == "object" && target != null) {
                 Object.keys(target).forEach(function (prop) {
+                    if (oldTarget && target[prop] == oldTarget[prop])
+                        if (Object.getOwnPropertyDescriptor(target, prop).set)
+                            return;
                     if (target.hasOwnProperty(prop)) {
                         var path = root ? root + "." + prop : prop;
                         if (typeof target[prop] == "object")
-                            _observe(target[prop], callSet, callGet, path);
+                            _observe(target[prop], callSet, callGet, path, oldTarget ? oldTarget[prop] : undefined);
                         _watch(target, prop, path);
                     }
                 })
@@ -875,14 +877,21 @@
         };
         var _watch = function (target, prop, path) {
             var value = target[prop];
+            callSet.call(target, prop, path);
             Object.defineProperty(target, prop, {
                 get: function () {
                     callGet.call(this, prop, path);
                     return value;
                 },
                 set: function (val) {
-                    value = _observe(val, callSet, callGet, path);
-                    callSet.call(this, prop, path);
+                    if (typeof value == "object") {
+                        var oldValue = value;
+                        _observe(value = val, callSet, callGet, path, oldValue);
+                        callSet.call(value, prop, path);
+                    } else if (value != val) {
+                        value = val;
+                        callSet.call(this, prop, path);
+                    }
                 }
             });
         };
