@@ -92,9 +92,7 @@
                         children.delete(node.clasNode);
                         childNodes.clear();
                         if (!children.size)
-                            with (cache) {
-                                eval("delete " + path(node.path));
-                            }
+                            eval("delete cache" + patha(node.path));
                     }
                 }
                 if (node.childNodes)
@@ -114,9 +112,7 @@
                         children.delete(node.clasNode);
                         childNodes.clear();
                         if (!children.size)
-                            with (cache) {
-                                eval("delete " + path(node.path));
-                            }
+                            eval("delete cache" + patha(node.path));
                     }
                 }
                 if (node.childNodes)
@@ -143,15 +139,15 @@
         function code(_express, _scope) {
             try {
                 with (_scope) {
-                    if ($express.test(_express))
+                    if (new RegExp($express).test(_express))
                         _express = "\"" + _express.replace($express, "\"+($1)+\"").replace(/[\f\n\r\v]/g, "") + "\"";
                     _express = _express.replace($word1, function (express) {
                         var value = _scope[express];
                         if (value != undefined) {
                             if (typeof (value) == 'string') {
-                                if (value.match(/^\$path:/g))
+                                if (/^\$path:/g.test(value))
                                     return path(value);
-                                if (value.match($index)) {
+                                if (new RegExp($index).test(value)) {
                                     $path = undefined;
                                     return "\"" + value.replace("$index:", "") + "\"";
                                 }
@@ -171,15 +167,13 @@
         }
         function codes(_express, _scope) {
             try {
-                with (_scope) {
-                    var value = _scope;
-                    _express = _express.replace($word1, function (express) {
-                        var values = value;
-                        values[express] = value[express] || new Map();
-                        value = values[express];
-                    });
-                    return value;
-                }
+                var value = _scope;
+                _express = _express.replace($word1, function (express) {
+                    var values = value;
+                    values["@" + express] = value["@" + express] || new Map();
+                    value = values["@" + express];
+                });
+                return value;
             } catch (e) {
                 return undefined;
             }
@@ -191,12 +185,12 @@
                 console.log(err)
             }
         }
-        function clone(nodes) {
-            if (Array.isArray(nodes))
-                return nodes.slice(0);
-            return each(nodes, [], function (node, i, list) {
-                list.push(this);
-            });
+        function patha(_express) {
+            try {
+                return _express.replace(/(\w+)\.?/g, "['@$1']");
+            } catch (err) {
+                console.log(err)
+            }
         }
         function init(dom) {
             each(dom, function (node) {
@@ -314,7 +308,7 @@
         function initCompiler(node, children) {
             return each(node, children || [], function (child, i, list) {
                 node.shift();
-                if (child.nodeValue && child.nodeValue.match($close))
+                if (new RegExp($close).test(child.nodeValue))
                     return true;
                 var item = { node: child, children: [] };
                 list.push(item);
@@ -375,7 +369,7 @@
         function compiler(node, iscope, childNodes, content) {
             each(childNodes, function (child, index, childNodes) {
                 child = setting(child, iscope);
-                if (child.node.nodeValue && child.node.nodeValue.match($break))
+                if (new RegExp($break).test(child.node.nodeValue))
                     return childNodes.clear();
                 switch (child.node.nodeType) {
                     case 1:
@@ -412,7 +406,7 @@
                         }
                         break;
                     default:
-                        if ($each.test(child.node.nodeValue)) {
+                        if (new RegExp($each).test(child.node.nodeValue)) {
                             var expreses = child.node.nodeValue.replace($each, "$2").split(":");
                             child.node.variable = expreses.shift().trim(), child.node.dataSource = expreses.pop().trim();
                             var dataSource = code(child.node.dataSource, iscope) || [];
@@ -430,16 +424,16 @@
                                 clasNode.childNodes.push(clasNodes);
                                 compiler(node, scope, clone(children), clasNodes);
                             });
-                        } else if ($when.test(child.node.nodeValue)) {
+                        } else if (new RegExp($when).test(child.node.nodeValue)) {
                             var clasNode = classNode(null, child);
                             content.childNodes.push(clasNode);
                             setCache(null, iscope, clasNode, content, node);
                             var when = code(child.node.nodeValue.replace($when, "$2"), iscope);
                             if (when) {
                                 each(clone(child.children), function (child, index, childNodes) {
-                                    if (child.node.nodeValue && child.node.nodeValue.match($break))
+                                    if (new RegExp($break).test(child.node.nodeValue))
                                         return true;
-                                    switch (child.node.nodeType == 1 || $chen.test(child.node.nodeValue)) {
+                                    switch (child.node.nodeType == 1 || new RegExp($chen).test(child.node.nodeValue)) {
                                         case true:
                                             compiler(node, iscope, childNodes, clasNode);
                                             break;
@@ -456,9 +450,9 @@
                             } else {
                                 each(clone(child.children), function (child, index, childNodes) {
                                     childNodes.shift();
-                                    if ($else.test(child.node.nodeValue)) {
+                                    if (new RegExp($else).test(child.node.nodeValue)) {
                                         each(childNodes, function (child, index, childNodes) {
-                                            switch ($chen.test(child.node.nodeValue) || child.node.nodeType == 1) {
+                                            switch (new RegExp($chen).test(child.node.nodeValue) || child.node.nodeType == 1) {
                                                 case true:
                                                     compiler(node, iscope, childNodes, clasNode);
                                                     break;
@@ -492,7 +486,6 @@
             owner._express = node.nodeValue.replace($express, "$1");
             owner.on("change", function handle() {
                 code(owner._express + "='" + owner.value.replace(/(\'|\")/g, "\\$1") + "'", scope);
-                //scope[owner._express] = owner.value;
             });
         }
         observe(app.model, function callSet(name, path) {
@@ -553,7 +546,10 @@
     function each(obj, arg, callback) {
         var methd = arguments[2] || arguments[1];
         var args = arguments[2] ? arg : obj;
-        if (Array.isArray(obj)) {
+        if (obj instanceof Array || 
+            obj instanceof NodeList || 
+            obj instanceof NamedNodeMap || 
+            obj instanceof HTMLCollection) {
             var length = obj.length;
             for (var i = 0; i < length; i++) {
                 if (obj.length != length)
@@ -573,6 +569,16 @@
                 }
         }
         return args;
+    }
+    function clone(nodes) {
+        if (nodes instanceof Array || 
+            nodes instanceof NodeList || 
+            nodes instanceof NamedNodeMap || 
+            nodes instanceof HTMLCollection)
+            return Array.prototype.slice.call(nodes, 0);
+        return each(nodes, [], function (node, i, list) {
+            list.push(this);
+        });
     }
     ["shift", "push", "pop", "splice", "unshift", "reverse"].forEach(function (name) {
         var method = Array.prototype[name];
@@ -648,6 +654,71 @@
             return this[this.length - 1];
         }
     });
+    function Map() {
+        Object.defineProperties(this, {
+            key: {
+                value: []
+            },
+            value: {
+                value: []
+            },
+            size: {
+                value: 0
+            }
+        });
+        setPrototype(Map, {
+            set: function (key, value) {
+                var index = this.key.indexOf(key);
+                index = index > 0 ? index : this.key.length;
+                this.key.splice(index, 1, key);
+                this.value.splice(index, 1, value);
+                this.size = this.key.length;
+            },
+            get: function (key) {
+                var index = this.key.indexOf(key);
+                return this.value[index];
+            },
+            delete: function (key) {
+                var index = this.key.indexOf(key);
+                this.key.splice(index, 1);
+                this.value.splice(index, 1);
+                this.size = this.key.length;
+            },
+            clear: function clear() {
+                this.key.clear();
+                this.value.clear();
+                this.size = this.key.length;
+            },
+            keys: function () {
+                return Object.values(this.key)
+            },
+            values: function () {
+                return Object.values(this.value)
+            },
+            entries: function () {
+                var entries = [];
+                this.key.forEach(function (key) {
+                    var index = this.key.indexOf(key);
+                    var value = this.value[index];
+                    kvs.push([key, value]);
+                }, this)
+                return entries;
+            },
+            forEach: function (callback) {
+                this.key.forEach(function (key) {
+                    var index = this.key.indexOf(key);
+                    var value = this.value[index];
+                    callback.call(this, value, key)
+                }, this)
+            },
+            has: {
+                value: function (key) {
+                    var index = this.key.indexOf(key);
+                    return index > -1 ? true : false;
+                }
+            }
+        });
+    }
     setPrototype(Map, {
         each: function (k, n) {
             var childNodes = this.get(k.clasNode);
@@ -685,10 +756,11 @@
                     this.addEventListener(type, function (event) {
                         var node = event.target;
                         var nodes = (node.parentNode || node).querySelectorAll(exp);
-                        nodes.forEach(function (child) {
+                        each(nodes, function (child) {
                             if (child.isSameNode(node))
                                 methd.call(child, event);
-                        });
+
+                        })
                     }, bol);
                     break;
             }
@@ -732,7 +804,9 @@
             }
         },
         clear: function (node) {
-            this.innerHTML = "";
+            each(this.childNodes, function (child) {
+                child.parentNode.removeChild(child);
+            })
             this.appendChild(node);
             return this;
         },
@@ -854,9 +928,7 @@
                             params.forEach(function (index) {
                                 callSet.call(thiz, index, path + index);
                             });
-                            with ({ obj: obj, target: target }) {
-                                eval("obj" + root.replace(/(\w+)\.?/g, "['$1']") + "=target");
-                            }
+                            eval("obj" + root.replace(/(\w+)\.?/g, "['$1']") + "=target");
                         }
                     });
             }
@@ -888,7 +960,7 @@
                         var oldValue = value;
                         _observe(value = val, callSet, callGet, path, oldValue);
                         callSet.call(value, prop, path);
-                    } else if (value != val) {
+                    } else if (value !== val) {
                         value = val;
                         callSet.call(this, prop, path);
                     }
@@ -900,5 +972,7 @@
     window.observe = observe;
     window.query = query;
     window.each = each;
+    window.clone = clone;
+    window.Map = Map;
     window.$ = ready;
 })(window);
