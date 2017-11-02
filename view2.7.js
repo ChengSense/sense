@@ -8,7 +8,7 @@
     var $lang = /((@each|@when)\s*\((.*)\s*,\s*\{|\{\s*\{([^\{\}]*)\}\s*\}|\s*\}\s*\)|@else)/g;
     var $close = /\}\s*\)\s*/g;
     var $break = /\}\s*\)|(@else)/g;
-    var $word = /(\w+)[(\.\w+)(\[\'?\w+\'?\])]*/g;
+    var $word = /(\w+)((\.\w+)|(\[(.+)\]))*/g;
     var $word1 = /\w+/g;
     var $index = /^\$index:/g;
     function view(app) {
@@ -935,7 +935,7 @@
             if (typeof target == "object" && target != null) {
                 Object.keys(target).forEach(function (prop) {
                     if (oldTarget && target[prop] == oldTarget[prop])
-                        if (Object.getOwnPropertyDescriptor(target, prop).set)
+                        if (target[prop] && Object.getOwnPropertyDescriptor(target, prop).set)
                             return;
                     if (target.hasOwnProperty(prop)) {
                         var path = root ? root + "." + prop : prop;
