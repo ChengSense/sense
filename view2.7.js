@@ -382,8 +382,7 @@
                             var clasNode = classNode(null, child);
                             content.childNodes.push(clasNode);
                             setCache(null, iscope, clasNode, content, node);
-                            content.childNodes.push(clasNode);
-
+                            
                             each(dataSource, function (item, index) {
                                 var scope = Object.create(iscope || {});
                                 scope[child.node.variable] = "$path:" + $path;
