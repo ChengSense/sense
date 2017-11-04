@@ -817,7 +817,7 @@
 				Object.keys(target).forEach(function (prop) {
 					var value = target[prop];
 					var oldValue = oldTarget ? oldTarget[prop] : undefined;
-					if (oldTarget && value == oldValue) {
+					if (value == oldValue) {
 						if (value && Object.getOwnPropertyDescriptor(target, prop).set) {
 							return;
 						}
